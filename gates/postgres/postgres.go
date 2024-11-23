@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"context"
 	sq "github.com/Masterminds/squirrel"
 	"github.com/bool64/sqluct"
 	"github.com/jmoiron/sqlx"
@@ -75,7 +76,8 @@ func (p *DB) GroupRename(oldGroupName string, newGroupName string) error {
 }
 
 func (p *DB) getSong(group string, song string) error {
-	query := p.sm.Select(p.sq.Select(), &Song{}).From("songs_library").
+	query := p.sm.Select(p.sq.Select(), &Song{}).
+		From("songs_library").
 		Where(sq.Eq{"group": group, "song": song})
 	qry, args, err := query.ToSql()
 	if err != nil {
@@ -97,4 +99,35 @@ func (p *DB) deleteSong(group string, song string) error {
 		return errors.Wrap(err, "failed to delete song")
 	}
 	return nil
+}
+
+func (p *DB) getLibrary(ctx context.Context, filter SongFilter) ([]Song, error) { //вывод всей библиотеки
+	query := p.sm.Select(p.sq.Select(), &Song{}).From("songs_library")
+
+	// Фильтрация
+	if filter.Group != nil {
+		query = query.Where("group = ?", *filter.Group)
+	}
+	if filter.SongName != nil {
+		query = query.Where("song = ?", *filter.SongName)
+	}
+	if filter.ReleaseDate != nil {
+		query = query.Where("release_date = ?", *filter.ReleaseDate)
+	}
+
+	//Пагинация
+	query = query.Limit(uint64(filter.Limit)).Offset(uint64(filter.Offset))
+
+	//sql запрос
+	qry, args, err := query.ToSql()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to build query to songs_library")
+	}
+	var songs []Song
+	err = p.db.SelectContext(ctx, &songs, qry, args...)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get filtered songs")
+	}
+
+	return songs, nil
 }
