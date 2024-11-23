@@ -45,7 +45,7 @@ func (p *DB) UpdateSong(song Song) error {
 		query = query.Set("link", song.Link).
 			Where(sq.Eq{"group": song.Group, "song": song.SongName})
 	}
-	if !song.ReleaseDate.IsZero() {
+	if song.ReleaseDate != "" {
 		query = query.Set("release_date", song.ReleaseDate).
 			Where(sq.Eq{"group": song.Group, "song": song.SongName})
 	}
@@ -107,14 +107,14 @@ func (p *DB) GetLibrary(ctx context.Context, filter SongFilter) ([]Song, error) 
 	query := p.sm.Select(p.sq.Select(), &Song{}).From("songs_library")
 
 	// Фильтрация
-	if filter.Group != nil {
-		query = query.Where("group = ?", *filter.Group)
+	if filter.Group != "" {
+		query = query.Where("group = ?", filter.Group)
 	}
-	if filter.SongName != nil {
-		query = query.Where("song = ?", *filter.SongName)
+	if filter.SongName != "" {
+		query = query.Where("song = ?", filter.SongName)
 	}
-	if filter.ReleaseDate != nil {
-		query = query.Where("release_date = ?", *filter.ReleaseDate)
+	if filter.ReleaseDate != "" {
+		query = query.Where("release_date = ?", filter.ReleaseDate)
 	}
 
 	//Пагинация
