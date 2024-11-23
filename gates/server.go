@@ -1,4 +1,4 @@
-package domain
+package server
 
 import (
 	"context"
@@ -9,19 +9,21 @@ import (
 	"net/http"
 )
 
-func Server(ctx context.Context, db LibraryDB) error {
-	router := chi.NewRouter()
-
-	router.Get("/getlibrary", db.GetLibraryHandler)
-	router.Get("/getsong", db.GetSongHandler)
-	router.Delete("/deletesong", db.DeleteSongHandler)
-	router.Post("/addsong", db.AddSongHandler)
-
-	zap.L().Info("Starting server on :8080")
-	return http.ListenAndServe(":8080", router)
+type Server struct {
+	db *postgres.DB
+	//логгер
 }
 
-func (db *DB) GetLibraryHandler(w http.ResponseWriter, r *http.Request) {
+func NewServer(ctx context.Context, router *chi.Mux, db *postgres.DB) *Server {
+	server := &Server{
+		db: db,
+	}
+
+	router.HandleFunc("/Library", server.GetLibraryHandler)
+	return server
+}
+
+func (s Server) GetLibraryHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var filter postgres.SongFilter
@@ -31,7 +33,7 @@ func (db *DB) GetLibraryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	library, err := db.GetLibrary(ctx, filter)
+	library, err := s.db.GetLibrary(ctx, filter)
 	if err != nil {
 		http.Error(w, "Failed to retrieve library: "+err.Error(), http.StatusInternalServerError)
 		zap.L().Error("Failed to retrieve library", zap.Error(err))

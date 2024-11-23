@@ -22,7 +22,7 @@ func NewDB(db *sqlx.DB) *DB {
 	}
 }
 
-func (p *DB) addSong(song Song) error { //функция добавления новой песни
+func (p *DB) AddSong(song Song) error { //функция добавления новой песни
 	query := p.sm.Insert(p.sq.Insert("songs_library"), song, sqluct.InsertIgnore)
 	qry, args, err := query.ToSql()
 	if err != nil {
@@ -39,7 +39,7 @@ func (p *DB) addSong(song Song) error { //функция добавления н
 	return nil
 }
 
-func (p *DB) updateSong(song Song) error {
+func (p *DB) UpdateSong(song Song) error {
 	query := p.sq.Update("songs_library")
 	if song.Link != "" { //проверка на то что линка не пустая
 		query = query.Set("link", song.Link).
@@ -75,7 +75,7 @@ func (p *DB) GroupRename(oldGroupName string, newGroupName string) error {
 	return nil
 }
 
-func (p *DB) getSong(group string, song string) error {
+func (p *DB) GetSong(group string, song string) error {
 	query := p.sm.Select(p.sq.Select(), &Song{}).
 		From("songs_library").
 		Where(sq.Eq{"group": group, "song": song})
@@ -90,7 +90,7 @@ func (p *DB) getSong(group string, song string) error {
 	return nil
 }
 
-func (p *DB) deleteSong(group string, song string) error {
+func (p *DB) DeleteSong(group string, song string) error {
 	query := p.sq.Delete("songs_library").
 		Where(sq.Eq{"group": group, "song": song})
 	qry, args, err := query.ToSql()
@@ -101,7 +101,7 @@ func (p *DB) deleteSong(group string, song string) error {
 	return nil
 }
 
-func (p *DB) getLibrary(ctx context.Context, filter SongFilter) ([]Song, error) { //вывод всей библиотеки
+func (p *DB) GetLibrary(ctx context.Context, filter SongFilter) ([]Song, error) { //вывод всей библиотеки
 	query := p.sm.Select(p.sq.Select(), &Song{}).From("songs_library")
 
 	// Фильтрация
