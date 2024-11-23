@@ -75,19 +75,21 @@ func (p *DB) GroupRename(oldGroupName string, newGroupName string) error {
 	return nil
 }
 
-func (p *DB) GetSong(group string, song string) error {
+func (p *DB) GetSong(group string, song string) (Song, error) {
+	var result Song
 	query := p.sm.Select(p.sq.Select(), &Song{}).
 		From("songs_library").
 		Where(sq.Eq{"group": group, "song": song})
 	qry, args, err := query.ToSql()
 	if err != nil {
-		return errors.Wrap(err, "failed to build query to songs_library")
+		return result, errors.Wrap(err, "failed to build query to songs_library")
 	}
 	err = p.db.Select(&Song{}, qry, args...)
 	if err != nil {
-		return errors.Wrap(err, "failed to get song")
+		return result, errors.Wrap(err, "failed to get song")
 	}
-	return nil
+
+	return result, nil
 }
 
 func (p *DB) DeleteSong(group string, song string) error {
