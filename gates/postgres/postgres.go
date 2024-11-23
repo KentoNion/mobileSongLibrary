@@ -61,12 +61,40 @@ func (p *DB) updateSong(song Song) error {
 	return nil
 }
 
-func (p *DB) GroupRename(song Song) error {}
+func (p *DB) GroupRename(oldGroupName string, newGroupName string) error {
+	query := p.sq.Update("songs_library")
+	query = query.Set("group", newGroupName).
+		Where(sq.Eq{"group": oldGroupName})
+	qry, args, err := query.ToSql()
+	_, err = p.db.Exec(qry, args...)
+	//updated_at обновляется с помощью триггера
+	if err != nil {
+		return errors.Wrap(err, "failed to update song")
+	}
+	return nil
+}
 
-func (p *DB) selectSong(group string, song string) error {
-
+func (p *DB) getSong(group string, song string) error {
+	query := p.sm.Select(p.sq.Select(), &Song{}).From("songs_library").
+		Where(sq.Eq{"group": group, "song": song})
+	qry, args, err := query.ToSql()
+	if err != nil {
+		return errors.Wrap(err, "failed to build query to songs_library")
+	}
+	err = p.db.Select(&Song{}, qry, args...)
+	if err != nil {
+		return errors.Wrap(err, "failed to get song")
+	}
+	return nil
 }
 
 func (p *DB) deleteSong(group string, song string) error {
-
+	query := p.sq.Delete("songs_library").
+		Where(sq.Eq{"group": group, "song": song})
+	qry, args, err := query.ToSql()
+	_, err = p.db.Exec(qry, args...)
+	if err != nil {
+		return errors.Wrap(err, "failed to delete song")
+	}
+	return nil
 }

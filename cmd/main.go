@@ -25,6 +25,6 @@ func main() {
 
 	wg := sync.WaitGroup{} //wait group для синхронизации горутин
 
-	Router := chi.NewRouter() //роутер
+	router := chi.NewRouter() //роутер
 
 }
