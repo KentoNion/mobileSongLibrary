@@ -36,11 +36,13 @@ func NewServer(ctx context.Context, router *chi.Mux, db *postgres.DB, log *zap.L
 	router.HandleFunc("/updatesong", server.UpdateSongHandler)
 	router.HandleFunc("/renamegroup", server.RenameGroupHandler)
 
+	server.log.Info("router configured")
 	return server
 }
 
 // Если попытаться добавить ту же песню что уже есть, то тогда она произведёт update старой версии и заменит старую информацию на предоставленую новую
 func (s Server) AddSongHandler(w http.ResponseWriter, r *http.Request) {
+	s.log.Info("AddSongHandler: connected to AddSongHandler", zap.String("method", r.Method), zap.String("path", r.URL.Path))
 	var song postgres.Song
 	//читаем запрос
 	if err := json.NewDecoder(r.Body).Decode(&song); err != nil {
@@ -56,12 +58,14 @@ func (s Server) AddSongHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	//всё ок
+	s.log.Info("AddSongHandler: successfully added song")
 	w.WriteHeader(http.StatusOK)
 }
 
 // обновит все старые данные на новые если строка не будет пустой (кроме имени группы и названии песни, он в renameGroupHandler),
 // а имя песни изменить никак нельзя, песни вроде как не меняют имена, верно?
 func (s Server) UpdateSongHandler(w http.ResponseWriter, r *http.Request) {
+	s.log.Info("UpdateSongHandler: connected to UpdateSongHandler", zap.String("method", r.Method), zap.String("path", r.URL.Path))
 	var song postgres.Song
 	//читаем запрос
 	if err := json.NewDecoder(r.Body).Decode(&song); err != nil {
@@ -77,10 +81,12 @@ func (s Server) UpdateSongHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	//всё ок
+	s.log.Info("UpdateSongHandler: successfully updated song")
 	w.WriteHeader(http.StatusOK)
 }
 
 func (s Server) GetLibraryHandler(w http.ResponseWriter, r *http.Request) {
+	s.log.Info("GetLibraryHandler: connected to GetLibraryHandler", zap.String("method", r.Method))
 	var filter postgres.SongFilter //todo надо проверить работает ли фильтр
 	//читаем запрос
 	if err := json.NewDecoder(r.Body).Decode(&filter); err != nil { //пагинация реализованна в фильтре
@@ -106,9 +112,11 @@ func (s Server) GetLibraryHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(response)
+	s.log.Info("GetLibraryHandler: successfully retrieved library")
 }
 
 func (s Server) GetSongHandler(w http.ResponseWriter, r *http.Request) {
+	s.log.Info("GetSongHandler: connected to GetSongHandler", zap.String("method", r.Method))
 	var song postgres.Song
 	//читаем запрос
 	if err := json.NewDecoder(r.Body).Decode(&song); err != nil {
@@ -169,9 +177,11 @@ func (s Server) GetSongHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json") //загружаем
 	w.WriteHeader(http.StatusOK)
 	w.Write(response)
+	s.log.Info("GetSongHandler: successfully retrieved song")
 }
 
 func (s Server) DeleteSongHandler(w http.ResponseWriter, r *http.Request) {
+	s.log.Info("DeleteSongHandler: connected to DeleteSongHandler", zap.String("method", r.Method))
 	var song postgres.Song
 	//читаем запрос
 	if err := json.NewDecoder(r.Body).Decode(&song); err != nil {
@@ -186,10 +196,12 @@ func (s Server) DeleteSongHandler(w http.ResponseWriter, r *http.Request) {
 		s.log.Error("Failed to delete song", zap.Error(err))
 	}
 	//пишем что всё ок
+	s.log.Info("DeleteSongHandler: successfully deleted song")
 	w.WriteHeader(http.StatusNoContent) //todo так чтоль? или статус ок?
 }
 
 func (s Server) RenameGroupHandler(w http.ResponseWriter, r *http.Request) {
+	s.log.Info("RenameGroupHandler: connected to RenameGroupHandler", zap.String("method", r.Method))
 	var group groupRename
 	//читаем запрос
 	if err := json.NewDecoder(r.Body).Decode(&group); err != nil {
@@ -205,5 +217,6 @@ func (s Server) RenameGroupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	//всё ок
+	s.log.Info("RenameGroupHandler: successfully renamed song")
 	w.WriteHeader(http.StatusOK)
 }
