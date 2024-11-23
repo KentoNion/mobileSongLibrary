@@ -28,6 +28,7 @@ func (p *DB) addSong(song Song) error { //функция добавления н
 		return errors.Wrap(err, "failed to make query while adding song")
 	}
 	rows, err := p.db.Exec(qry, args...)
+	//created_at устанавливается с помощью триггера
 	if err != nil {
 		return errors.Wrap(err, "failed to add song")
 	}
@@ -38,22 +39,29 @@ func (p *DB) addSong(song Song) error { //функция добавления н
 }
 
 func (p *DB) updateSong(song Song) error {
-	query := `
-	UPDATE songs_library
-	SET 
-		release_date = $3,
-		text = $4
-		link = $5,
-		updated_at = NOW()
-	WHERE "group" = $1 AND song = $2;
-`
-	_, err := p.db.Exec(query, song.Group, song.SongName, song.ReleaseDate, song.Text, song.Link)
-	//todo а если какой то из параметров окажется пустым? Надо не перезаписывать его
+	query := p.sq.Update("songs_library")
+	if song.Link != "" { //проверка на то что линка не пустая
+		query = query.Set("link", song.Link).
+			Where(sq.Eq{"group": song.Group, "song": song.SongName})
+	}
+	if !song.ReleaseDate.IsZero() {
+		query = query.Set("release_date", song.ReleaseDate).
+			Where(sq.Eq{"group": song.Group, "song": song.SongName})
+	}
+	if song.Text != "" {
+		query = query.Set("text", song.Text).
+			Where(sq.Eq{"group": song.Group, "song": song.SongName})
+	}
+	qry, args, err := query.ToSql()
+	_, err = p.db.Exec(qry, args...)
+	//updated_at обновляется с помощью триггера
 	if err != nil {
 		return errors.Wrap(err, "failed to update song")
 	}
 	return nil
 }
+
+func (p *DB) GroupRename(song Song) error {}
 
 func (p *DB) selectSong(group string, song string) error {
 

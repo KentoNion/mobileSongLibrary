@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 	"mobileSongLibrary/gates/postgres"
@@ -23,5 +24,7 @@ func main() {
 	db := postgres.NewDB(conn) //переменная базы данных
 
 	wg := sync.WaitGroup{} //wait group для синхронизации горутин
+
+	Router := chi.NewRouter() //роутер
 
 }
