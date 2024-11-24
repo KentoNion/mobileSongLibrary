@@ -18,21 +18,21 @@ func TestInsertUpdateSelectGetLibraryRenameGroupDelete(t *testing.T) {
 	//создание тестовых песен для загрузки в бд
 	testSongs := []Song{
 		{
-			Group:       "muse",
+			GroupName:   "muse",
 			SongName:    "Supermassive Black Hole",
 			ReleaseDate: "16.07.2006",
 			Text:        "Ooh baby, don't you know I suffer?\nOoh baby, can you hear me moan?\nYou caught me under false pretenses\nHow long before you let me go?\n\nOoh\nYou set my soul alight\nOoh\nYou set my soul alight",
 			Link:        "https://www.youtube.com/watch?v=Xsp3_a-PMTw",
 		},
 		{
-			Group:       "muse",
+			GroupName:   "muse",
 			SongName:    "WON'T STAND DOWN",
 			ReleaseDate: "13.01.2022",
 			Text:        "I never believed that I would concede and let someone trample on me\nYou strung me along, I thought I was strong, but you were just gaslighting me\nI've opened my eyes, and counted the lies, and now it is clearer to me\nYou are just a user, and an abuser, living vicariously\n\nWon’t stand down\nI’m growing stronger\nWon’t stand down\nI’m owned no longer\nWon’t stand down\nYou’ve used me for too long, now die alone",
 			Link:        "https://youtu.be/d55ELY17CFM",
 		},
 		{
-			Group:       "Buku",
+			GroupName:   "Buku",
 			SongName:    "Front to Back",
 			ReleaseDate: "30.08.2016",
 			Text:        "Front to the back, front to back\nFront to the back, front to back...",
@@ -47,7 +47,7 @@ func TestInsertUpdateSelectGetLibraryRenameGroupDelete(t *testing.T) {
 	}
 	//проверяем метод update
 	err = db.UpdateSong(Song{
-		Group:       "Buku",
+		GroupName:   "Buku",
 		SongName:    "Front to Back",
 		ReleaseDate: "31.08.2016",
 	})

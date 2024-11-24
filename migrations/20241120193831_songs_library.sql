@@ -27,9 +27,10 @@ CREATE TRIGGER set_updated_at
     EXECUTE FUNCTION update_updated_at_column();
 
 -- +goose Down
--- Удаляем таблицу songs_library)
-DROP TABLE IF EXISTS songs_library;
 
 -- Удаляем триггер и функцию
 DROP TRIGGER IF EXISTS set_updated_at ON songs_library;
 DROP FUNCTION IF EXISTS update_updated_at_column();
+
+-- Удаляем таблицу songs_library)
+DROP TABLE IF EXISTS songs_library;

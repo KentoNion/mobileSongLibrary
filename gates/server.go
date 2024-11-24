@@ -140,7 +140,7 @@ func (s Server) GetSongHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	//вытаскиваем песню из дб
-	song, err := s.db.GetSong(song.Group, song.SongName)
+	song, err := s.db.GetSong(song.GroupName, song.SongName)
 	if err != nil {
 		http.Error(w, "Failed to retrieve song: "+err.Error(), http.StatusInternalServerError)
 		s.log.Error("Failed to retrieve song", zap.Error(err))
@@ -159,7 +159,7 @@ func (s Server) GetSongHandler(w http.ResponseWriter, r *http.Request) {
 
 	//формирование ответа
 	resp := map[string]interface{}{
-		"group":           song.Group,
+		"group":           song.GroupName,
 		"song":            song.SongName,
 		"release_date":    song.ReleaseDate,
 		"link":            song.Link,
@@ -190,7 +190,7 @@ func (s Server) DeleteSongHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	//удаляем песню из бд
-	err := s.db.DeleteSong(song.Group, song.SongName)
+	err := s.db.DeleteSong(song.GroupName, song.SongName)
 	if err != nil {
 		http.Error(w, "Failed to delete song: "+err.Error(), http.StatusInternalServerError)
 		s.log.Error("Failed to delete song", zap.Error(err))

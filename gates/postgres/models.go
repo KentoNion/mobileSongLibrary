@@ -1,8 +1,8 @@
 package postgres
 
 type Song struct {
-	Group       string `db:"group"`
-	SongName    string `db:"song_name"`
+	GroupName   string `db:"group_name"`
+	SongName    string `db:"song"`
 	ReleaseDate string `db:"release_date"`
 	Text        string `db:"text"`
 	Link        string `db:"link"`

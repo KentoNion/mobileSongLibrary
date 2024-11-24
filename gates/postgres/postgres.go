@@ -43,15 +43,15 @@ func (p *DB) UpdateSong(song Song) error {
 	query := p.sq.Update("songs_library")
 	if song.Link != "" { //проверка на то что линка не пустая
 		query = query.Set("link", song.Link).
-			Where(sq.Eq{"group_name": song.Group, "song": song.SongName})
+			Where(sq.Eq{"group_name": song.GroupName, "song": song.SongName})
 	}
 	if song.ReleaseDate != "" {
 		query = query.Set("release_date", song.ReleaseDate).
-			Where(sq.Eq{"group_name": song.Group, "song": song.SongName})
+			Where(sq.Eq{"group_name": song.GroupName, "song": song.SongName})
 	}
 	if song.Text != "" {
 		query = query.Set("text", song.Text).
-			Where(sq.Eq{"group_name": song.Group, "song": song.SongName})
+			Where(sq.Eq{"group_name": song.GroupName, "song": song.SongName})
 	}
 	qry, args, err := query.ToSql()
 	_, err = p.db.Exec(qry, args...)
