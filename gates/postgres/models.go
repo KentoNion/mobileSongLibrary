@@ -1,5 +1,7 @@
 package postgres
 
+import "errors"
+
 type Song struct {
 	GroupName   string `db:"group_name" json:"group"`
 	SongName    string `db:"song" json:"song"`
@@ -14,4 +16,14 @@ type SongFilter struct {
 	ReleaseDate string `db:"release_date" json:"release_date,omitempty"` // Фильтр по дате выпуска
 	Limit       int    `json:"limit,omitempty"`                          // Количество записей на странице
 	Offset      int    `json:"offset,omitempty"`                         // Сдвиг для пагинации
+}
+
+func (s *Song) Validate() error {
+	if s.GroupName == "" {
+		return errors.New("group_name is required")
+	}
+	if s.SongName == "" {
+		return errors.New("song_name is required")
+	}
+	return nil
 }

@@ -49,9 +49,15 @@ func (s Server) AddSongHandler(w http.ResponseWriter, r *http.Request) {
 		s.log.Error("Failed to decode request body", zap.Error(err))
 		return
 	}
+	err := song.Validate() //проверка на не пустые параметры group и song
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		s.log.Error("Invalid request body", zap.String("method", r.Method), zap.String("path", r.URL.Path))
+	}
+
 	defer r.Body.Close()
 	//пакуем песню в бд
-	err := s.db.AddSong(song)
+	err = s.db.AddSong(song)
 	if err != nil {
 		s.log.Error("Failed to add song", zap.Error(err))
 		http.Error(w, "Failed to add song", http.StatusInternalServerError)
@@ -74,8 +80,15 @@ func (s Server) UpdateSongHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer r.Body.Close()
+
+	err := song.Validate() //проверка на не пустые параметры group и song
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		s.log.Error("Invalid request body", zap.String("method", r.Method), zap.String("path", r.URL.Path))
+	}
+
 	//обновляем песню
-	err := s.db.UpdateSong(song)
+	err = s.db.UpdateSong(song)
 	if err != nil {
 		s.log.Error("Failed to update song", zap.Error(err))
 		http.Error(w, "Failed to update song", http.StatusInternalServerError)
@@ -128,6 +141,12 @@ func (s Server) GetSongHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
+	err := song.Validate() //проверка на не пустые параметры group и song
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		s.log.Error("Invalid request body", zap.String("method", r.Method), zap.String("path", r.URL.Path))
+	}
+
 	//Получение параметров пагинации из запроса
 	query := r.URL.Query()
 	page := 1
@@ -143,7 +162,7 @@ func (s Server) GetSongHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	//вытаскиваем песню из дб
-	song, err := s.db.GetSong(song.GroupName, song.SongName)
+	song, err = s.db.GetSong(song.GroupName, song.SongName)
 	if err != nil {
 		http.Error(w, "Failed to retrieve song: "+err.Error(), http.StatusInternalServerError)
 		s.log.Error("Failed to retrieve song", zap.Error(err))
@@ -193,8 +212,15 @@ func (s Server) DeleteSongHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer r.Body.Close()
+
+	err := song.Validate() //проверка на не пустые параметры group и song
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		s.log.Error("Invalid request body", zap.String("method", r.Method), zap.String("path", r.URL.Path))
+	}
+
 	//удаляем песню из бд
-	err := s.db.DeleteSong(song.GroupName, song.SongName)
+	err = s.db.DeleteSong(song.GroupName, song.SongName)
 	if err != nil {
 		http.Error(w, "Failed to delete song: "+err.Error(), http.StatusInternalServerError)
 		s.log.Error("Failed to delete song", zap.Error(err))
