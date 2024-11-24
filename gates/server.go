@@ -40,7 +40,6 @@ func NewServer(ctx context.Context, router *chi.Mux, db *postgres.DB, log *zap.L
 	return server
 }
 
-// Если попытаться добавить ту же песню что уже есть, то тогда она произведёт update старой версии и заменит старую информацию на предоставленую новую
 func (s Server) AddSongHandler(w http.ResponseWriter, r *http.Request) {
 	s.log.Info("AddSongHandler: connected to AddSongHandler", zap.String("method", r.Method), zap.String("path", r.URL.Path))
 	var song postgres.Song

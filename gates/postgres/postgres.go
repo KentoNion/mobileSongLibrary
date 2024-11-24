@@ -6,6 +6,7 @@ import (
 	"github.com/bool64/sqluct"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
+	"time"
 )
 
 type DB struct {
@@ -18,22 +19,25 @@ func NewDB(db *sqlx.DB) *DB {
 	return &DB{
 		db: db,
 		sq: sq.StatementBuilder.PlaceholderFormat(sq.Dollar),
-		sm: sqluct.Mapper{Dialect: sqluct.DialectSQLite3},
+		sm: sqluct.Mapper{Dialect: sqluct.DialectPostgres},
 	}
 }
 
 func (p *DB) AddSong(song Song) error { //функция добавления новой песни
-	query := p.sm.Insert(p.sq.Insert("songs_library"), song, sqluct.InsertIgnore)
+	query := p.sq.Insert("songs_library").
+		Columns("group_name", "song", "release_date", "text", "link", "created_at", "updated_at").
+		Values(song.GroupName, song.SongName, song.ReleaseDate, song.Text, song.Link, time.Now(), time.Now()).
+		Suffix("ON CONFLICT (group_name, song) DO NOTHING")
 	qry, args, err := query.ToSql()
 	if err != nil {
 		return errors.Wrap(err, "failed to make query while adding song")
 	}
 	rows, err := p.db.Exec(qry, args...)
-	//created_at устанавливается с помощью триггера
+
 	if err != nil {
 		return errors.Wrap(err, "failed to add song")
 	}
-	if rows, _ := rows.RowsAffected(); rows == 0 { //проверка на поменялось ли что
+	if affectedRows, _ := rows.RowsAffected(); affectedRows == 0 { //проверка на поменялось ли что
 		return errors.New("failed to add song, no rows affected")
 	}
 	return nil
@@ -53,9 +57,10 @@ func (p *DB) UpdateSong(song Song) error {
 		query = query.Set("text", song.Text).
 			Where(sq.Eq{"group_name": song.GroupName, "song": song.SongName})
 	}
+	query = query.Set("updated_at", time.Now()).
+		Where(sq.Eq{"group_name": song.GroupName, "song": song.SongName})
 	qry, args, err := query.ToSql()
 	_, err = p.db.Exec(qry, args...)
-	//updated_at обновляется с помощью триггера
 	if err != nil {
 		return errors.Wrap(err, "failed to update song")
 	}
@@ -103,10 +108,11 @@ func (p *DB) DeleteSong(group string, song string) error {
 	return nil
 }
 
-func (p *DB) GetLibrary(ctx context.Context, filter SongFilter) ([]Song, error) { //вывод всей библиотеки
+func (p *DB) GetLibrary(ctx context.Context, filter SongFilter) ([]Song, error) {
+	// Создаем базовый запрос
 	query := p.sm.Select(p.sq.Select(), &Song{}).From("songs_library")
 
-	// Фильтрация
+	// Фильтрация по значениям фильтра
 	if filter.GroupName != "" {
 		query = query.Where("group_name = ?", filter.GroupName)
 	}
@@ -117,18 +123,22 @@ func (p *DB) GetLibrary(ctx context.Context, filter SongFilter) ([]Song, error) 
 		query = query.Where("release_date = ?", filter.ReleaseDate)
 	}
 
-	//Пагинация
-	query = query.Limit(uint64(filter.Limit)).Offset(uint64(filter.Offset))
+	// Пагинация (если задан лимит)
+	if filter.Limit > 0 {
+		query = query.Limit(uint64(filter.Limit)).Offset(uint64(filter.Offset))
+	}
 
-	//sql запрос
+	// Генерация SQL-запроса
 	qry, args, err := query.ToSql()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to build query to songs_library")
+		return nil, errors.Wrap(err, "failed to build query for songs_library")
 	}
+
+	// Выполняем запрос
 	var songs []Song
 	err = p.db.SelectContext(ctx, &songs, qry, args...)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get filtered songs")
+		return nil, errors.Wrap(err, "failed to fetch songs from songs_library")
 	}
 
 	return songs, nil

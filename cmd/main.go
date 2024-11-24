@@ -28,8 +28,8 @@ func main() {
 	router := chi.NewRouter()
 	_ = server.NewServer(ctx, router, db, log)
 
+	log.Info("Starting server")
 	err = http.ListenAndServe(":8080", router)
-	log.Info("Server started")
 	if err != nil {
 		log.Error("server error", zap.Error(err))
 		return
