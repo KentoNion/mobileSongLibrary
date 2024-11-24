@@ -8,21 +8,23 @@ import (
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq" //драйвер postgres
 	"go.uber.org/zap"
+
 	"mobileSongLibrary/gates/postgres"
 	"mobileSongLibrary/gates/server"
+	"mobileSongLibrary/internal/logger"
 	"net/http"
 	"os"
 )
 
 func main() {
-	log, err := zap.NewDevelopment() // инструмент логирования ошибок
+	err := godotenv.Load(".env")
 	if err != nil {
 		panic(err)
 	}
 
-	err = godotenv.Load(".env")
+	log, err := logger.InitLogger(os.Getenv("LOG_FILE")) // инструмент логирования ошибок
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		panic(err)
 	}
 
 	ctx := context.Background() // контекст
