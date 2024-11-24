@@ -3,7 +3,7 @@
 CREATE TABLE songs_library (
     group VARCHAR(255) NOT NULL,
     song VARCHAR(255) NOT NULL,
-    release_date DATE NOT NULL,
+    release_date VARCHAR(255) NOT NULL,
     text TEXT NOT NULL,
     link VARCHAR(500),
     created_at TIMESTAMP DEFAULT NOW(),

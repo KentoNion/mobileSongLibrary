@@ -1,0 +1,1 @@
+export GOOSE_DRIVER=postgres GOOSE_DBSTRING="host=localhost user=postgres database=test.db" GOOSE_MIGRATION_DIR=./migrations
