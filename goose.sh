@@ -1,1 +1,2 @@
-export GOOSE_DRIVER=postgres GOOSE_DBSTRING="host=localhost user=postgres password=postgres database=testdb sslmode=disable" GOOSE_MIGRATION_DIR=./migrations
+GOOSE_DRIVER=postgres GOOSE_DBSTRING="host=localhost user=postgres password=postgres database=songs sslmode=disable" GOOSE_MIGRATION_DIR=./migrations goose up
+GOOSE_DRIVER=postgres GOOSE_DBSTRING="host=localhost user=postgres password=testdb database=songs sslmode=disable" GOOSE_MIGRATION_DIR=./migrations goose up

@@ -19,6 +19,9 @@ func main() {
 
 	ctx := context.Background() // контекст
 
+	postgres.RunGooseMigrations("songs")
+	log.Info("Songs migrations applied successfully")
+
 	conn, err := sqlx.Connect("postgres", "user=postgres password=postgres dbname=songs host=localhost sslmode=disable") //подключение к бд
 	if err != nil {
 		panic(err)

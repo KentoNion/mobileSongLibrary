@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"github.com/jmoiron/sqlx"
+	"github.com/labstack/gommon/log"
 	_ "github.com/lib/pq" //драйвер postgres
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -10,6 +11,9 @@ import (
 
 func TestInsertUpdateSelectGetLibraryRenameGroupDelete(t *testing.T) {
 	ctx := context.Background()
+
+	RunGooseMigrations("testbd")
+	log.Info("testbd migrations applied successfully")
 	//подключение к бд
 	conn, err := sqlx.Connect("postgres", "user=postgres password=postgres dbname=testdb host=localhost sslmode=disable")
 	require.NoError(t, err)
