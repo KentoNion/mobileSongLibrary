@@ -8,8 +8,8 @@ import (
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq" //драйвер postgres
 	"go.uber.org/zap"
-	server "mobileSongLibrary/gates"
 	"mobileSongLibrary/gates/postgres"
+	"mobileSongLibrary/gates/server"
 	"net/http"
 	"os"
 )

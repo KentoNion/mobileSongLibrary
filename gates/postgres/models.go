@@ -1,17 +1,17 @@
 package postgres
 
 type Song struct {
-	GroupName   string `db:"group_name"`
-	SongName    string `db:"song"`
-	ReleaseDate string `db:"release_date"`
-	Text        string `db:"text"`
-	Link        string `db:"link"`
+	GroupName   string `db:"group_name" json:"group"`
+	SongName    string `db:"song" json:"song"`
+	ReleaseDate string `db:"release_date" json:"release_date,omitempty"`
+	Text        string `db:"text" json:"text,omitempty"`
+	Link        string `db:"link" json:"link,omitempty"`
 }
 
 type SongFilter struct {
-	GroupName   string `db:"group_name"`   // Фильтр по группе
-	SongName    string `db:"song"`         // Фильтр по названию песни
-	ReleaseDate string `db:"release_date"` // Фильтр по дате выпуска
-	Limit       int    // Количество записей на странице
-	Offset      int    // Сдвиг для пагинации
+	GroupName   string `db:"group_name" json:"group"`                    // Фильтр по группе
+	SongName    string `db:"song" json:"song"`                           // Фильтр по названию песни
+	ReleaseDate string `db:"release_date" json:"release_date,omitempty"` // Фильтр по дате выпуска
+	Limit       int    `json:"limit,omitempty"`                          // Количество записей на странице
+	Offset      int    `json:"offset,omitempty"`                         // Сдвиг для пагинации
 }

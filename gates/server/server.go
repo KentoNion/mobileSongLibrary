@@ -49,6 +49,7 @@ func (s Server) AddSongHandler(w http.ResponseWriter, r *http.Request) {
 		s.log.Error("Failed to decode request body", zap.Error(err))
 		return
 	}
+	defer r.Body.Close()
 	//пакуем песню в бд
 	err := s.db.AddSong(song)
 	if err != nil {
@@ -58,7 +59,7 @@ func (s Server) AddSongHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	//всё ок
 	s.log.Info("AddSongHandler: successfully added song")
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusCreated)
 }
 
 // обновит все старые данные на новые если строка не будет пустой (кроме имени группы и названии песни, он в renameGroupHandler),
@@ -72,6 +73,7 @@ func (s Server) UpdateSongHandler(w http.ResponseWriter, r *http.Request) {
 		s.log.Error("Failed to decode request body", zap.Error(err))
 		return
 	}
+	defer r.Body.Close()
 	//обновляем песню
 	err := s.db.UpdateSong(song)
 	if err != nil {
@@ -81,7 +83,7 @@ func (s Server) UpdateSongHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	//всё ок
 	s.log.Info("UpdateSongHandler: successfully updated song")
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusCreated)
 }
 
 func (s Server) GetLibraryHandler(w http.ResponseWriter, r *http.Request) {
@@ -93,6 +95,7 @@ func (s Server) GetLibraryHandler(w http.ResponseWriter, r *http.Request) {
 		s.log.Error("Failed to decode request body", zap.Error(err))
 		return
 	}
+	defer r.Body.Close()
 	//достаём библиотеку наших хитов из бд
 	library, err := s.db.GetLibrary(s.context, filter)
 	if err != nil {
@@ -123,6 +126,7 @@ func (s Server) GetSongHandler(w http.ResponseWriter, r *http.Request) {
 		s.log.Error("Failed to decode request body", zap.Error(err))
 		return
 	}
+	defer r.Body.Close()
 
 	//Получение параметров пагинации из запроса
 	query := r.URL.Query()
@@ -188,6 +192,7 @@ func (s Server) DeleteSongHandler(w http.ResponseWriter, r *http.Request) {
 		s.log.Error("Failed to decode request body", zap.Error(err))
 		return
 	}
+	defer r.Body.Close()
 	//удаляем песню из бд
 	err := s.db.DeleteSong(song.GroupName, song.SongName)
 	if err != nil {
@@ -208,6 +213,7 @@ func (s Server) RenameGroupHandler(w http.ResponseWriter, r *http.Request) {
 		s.log.Error("Failed to decode request body", zap.Error(err))
 		return
 	}
+	defer r.Body.Close()
 	//переименовываем группу
 	err := s.db.GroupRename(group.oldName, group.newName)
 	if err != nil {
@@ -217,5 +223,5 @@ func (s Server) RenameGroupHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	//всё ок
 	s.log.Info("RenameGroupHandler: successfully renamed song")
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusNoContent)
 }
