@@ -61,7 +61,7 @@ func TestInsertUpdateSelectGetLibraryRenameGroupDelete(t *testing.T) {
 	require.NoError(t, err)
 
 	//получаем список всех песен, и проверяем работу фильтра по группе (новое имя группы)
-	testLibrary, err := db.GetLibrary(ctx, SongFilter{Group: "Muse"})
+	testLibrary, err := db.GetLibrary(ctx, SongFilter{GroupName: "Muse"})
 	require.NoError(t, err)
 	require.Equal(t, "13.01.2022", testLibrary[1].ReleaseDate)
 

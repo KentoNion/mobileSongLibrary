@@ -84,7 +84,7 @@ func (p *DB) GetSong(group string, song string) (Song, error) {
 	if err != nil {
 		return result, errors.Wrap(err, "failed to build query to songs_library")
 	}
-	err = p.db.Select(&Song{}, qry, args...)
+	err = p.db.Get(&result, qry, args...)
 	if err != nil {
 		return result, errors.Wrap(err, "failed to get song")
 	}
@@ -107,8 +107,8 @@ func (p *DB) GetLibrary(ctx context.Context, filter SongFilter) ([]Song, error) 
 	query := p.sm.Select(p.sq.Select(), &Song{}).From("songs_library")
 
 	// Фильтрация
-	if filter.Group != "" {
-		query = query.Where("group = ?", filter.Group)
+	if filter.GroupName != "" {
+		query = query.Where("group_name = ?", filter.GroupName)
 	}
 	if filter.SongName != "" {
 		query = query.Where("song = ?", filter.SongName)

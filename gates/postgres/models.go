@@ -9,9 +9,9 @@ type Song struct {
 }
 
 type SongFilter struct {
-	Group       string // Фильтр по группе
-	SongName    string // Фильтр по названию песни
-	ReleaseDate string // Фильтр по дате выпуска
+	GroupName   string `db:"group_name"`   // Фильтр по группе
+	SongName    string `db:"song"`         // Фильтр по названию песни
+	ReleaseDate string `db:"release_date"` // Фильтр по дате выпуска
 	Limit       int    // Количество записей на странице
 	Offset      int    // Сдвиг для пагинации
 }
