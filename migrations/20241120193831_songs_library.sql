@@ -1,14 +1,14 @@
 -- +goose Up
 -- Создаем таблицу songs
 CREATE TABLE songs_library (
-    group VARCHAR(255) NOT NULL,
+    group_name VARCHAR(255) NOT NULL,
     song VARCHAR(255) NOT NULL,
     release_date VARCHAR(255) NOT NULL,
     text TEXT NOT NULL,
     link VARCHAR(500),
     created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-    PRIMARY KEY (group, song)
+    updated_at TIMESTAMP DEFAULT NOW(),
+        PRIMARY KEY (group_name, song)
 );
 
 -- Функция для автоматического обновления updated_at

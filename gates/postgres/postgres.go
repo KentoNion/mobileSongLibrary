@@ -43,15 +43,15 @@ func (p *DB) UpdateSong(song Song) error {
 	query := p.sq.Update("songs_library")
 	if song.Link != "" { //проверка на то что линка не пустая
 		query = query.Set("link", song.Link).
-			Where(sq.Eq{"group": song.Group, "song": song.SongName})
+			Where(sq.Eq{"group_name": song.Group, "song": song.SongName})
 	}
 	if song.ReleaseDate != "" {
 		query = query.Set("release_date", song.ReleaseDate).
-			Where(sq.Eq{"group": song.Group, "song": song.SongName})
+			Where(sq.Eq{"group_name": song.Group, "song": song.SongName})
 	}
 	if song.Text != "" {
 		query = query.Set("text", song.Text).
-			Where(sq.Eq{"group": song.Group, "song": song.SongName})
+			Where(sq.Eq{"group_name": song.Group, "song": song.SongName})
 	}
 	qry, args, err := query.ToSql()
 	_, err = p.db.Exec(qry, args...)
@@ -64,8 +64,8 @@ func (p *DB) UpdateSong(song Song) error {
 
 func (p *DB) GroupRename(oldGroupName string, newGroupName string) error {
 	query := p.sq.Update("songs_library")
-	query = query.Set("group", newGroupName).
-		Where(sq.Eq{"group": oldGroupName})
+	query = query.Set("group_name", newGroupName).
+		Where(sq.Eq{"group_name": oldGroupName})
 	qry, args, err := query.ToSql()
 	_, err = p.db.Exec(qry, args...)
 	//updated_at обновляется с помощью триггера
@@ -79,7 +79,7 @@ func (p *DB) GetSong(group string, song string) (Song, error) {
 	var result Song
 	query := p.sm.Select(p.sq.Select(), &Song{}).
 		From("songs_library").
-		Where(sq.Eq{"group": group, "song": song})
+		Where(sq.Eq{"group_name": group, "song": song})
 	qry, args, err := query.ToSql()
 	if err != nil {
 		return result, errors.Wrap(err, "failed to build query to songs_library")
@@ -94,7 +94,7 @@ func (p *DB) GetSong(group string, song string) (Song, error) {
 
 func (p *DB) DeleteSong(group string, song string) error {
 	query := p.sq.Delete("songs_library").
-		Where(sq.Eq{"group": group, "song": song})
+		Where(sq.Eq{"group_name": group, "song": song})
 	qry, args, err := query.ToSql()
 	_, err = p.db.Exec(qry, args...)
 	if err != nil {
