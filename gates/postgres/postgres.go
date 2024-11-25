@@ -6,6 +6,7 @@ import (
 	"github.com/bool64/sqluct"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
+	"mobileSongLibrary/domain"
 	"time"
 )
 
@@ -23,7 +24,7 @@ func NewDB(db *sqlx.DB) *DB {
 	}
 }
 
-func (p *DB) AddSong(song Song) error { //функция добавления новой песни
+func (p *DB) AddSong(song domain.Song) error { //функция добавления новой песни
 	query := p.sq.Insert("songs_library").
 		Columns("group_name", "song", "release_date", "text", "link", "created_at", "updated_at").
 		Values(song.GroupName, song.SongName, song.ReleaseDate, song.Text, song.Link, time.Now(), time.Now()).
@@ -43,7 +44,7 @@ func (p *DB) AddSong(song Song) error { //функция добавления н
 	return nil
 }
 
-func (p *DB) UpdateSong(song Song) error {
+func (p *DB) UpdateSong(song domain.Song) error {
 	query := p.sq.Update("songs_library")
 	if song.Link != "" { //проверка на то что линка не пустая
 		query = query.Set("link", song.Link).
@@ -108,7 +109,7 @@ func (p *DB) DeleteSong(group string, song string) error {
 	return nil
 }
 
-func (p *DB) GetLibrary(ctx context.Context, filter SongFilter) ([]Song, error) {
+func (p *DB) GetLibrary(ctx context.Context, filter domain.SongFilter) ([]Song, error) {
 	// Создаем базовый запрос
 	query := p.sm.Select(p.sq.Select(), &Song{}).From("songs_library")
 

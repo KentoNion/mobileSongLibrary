@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
+	"mobileSongLibrary/domain"
+	swagger "mobileSongLibrary/gates/apiservice"
 	"mobileSongLibrary/gates/postgres"
 	"net/http"
 	"strconv"
@@ -15,6 +17,7 @@ type Server struct {
 	db      *postgres.DB
 	context context.Context
 	log     *zap.Logger
+	client  swagger.ClientInterface
 }
 
 type groupRename struct {
@@ -22,11 +25,12 @@ type groupRename struct {
 	newName string
 }
 
-func NewServer(ctx context.Context, router *chi.Mux, db *postgres.DB, log *zap.Logger) *Server {
+func NewServer(ctx context.Context, router *chi.Mux, db *postgres.DB, log *zap.Logger, client swagger.ClientInterface) *Server {
 	server := &Server{
 		db:      db,
 		context: ctx,
 		log:     log,
+		client:  client,
 	}
 
 	router.HandleFunc("/Library", server.GetLibraryHandler)
@@ -42,7 +46,7 @@ func NewServer(ctx context.Context, router *chi.Mux, db *postgres.DB, log *zap.L
 
 func (s Server) AddSongHandler(w http.ResponseWriter, r *http.Request) {
 	s.log.Info("AddSongHandler: connected to AddSongHandler", zap.String("method", r.Method), zap.String("path", r.URL.Path))
-	var song postgres.Song
+	var song domain.Song
 	//читаем запрос
 	if err := json.NewDecoder(r.Body).Decode(&song); err != nil {
 		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
@@ -54,6 +58,20 @@ func (s Server) AddSongHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		s.log.Error("Invalid request body", zap.String("method", r.Method), zap.String("path", r.URL.Path))
 	}
+
+	//реализация API
+	response, err := s.client.GetInfo(r.Context(), &swagger.GetInfoParams{song.GroupName, song.SongName})
+	if err != nil {
+		s.log.Error("Failed to get info", zap.String("method", r.Method), zap.String("path", r.URL.Path))
+		http.Error(w, "Failed to get info: "+err.Error(), http.StatusInternalServerError)
+	}
+	defer response.Body.Close()
+	var songDetail swagger.SongDetail
+	json.NewDecoder(response.Body).Decode(&songDetail)
+
+	song.Link = songDetail.Link
+	song.Text = songDetail.Text
+	song.ReleaseDate = songDetail.ReleaseDate
 
 	defer r.Body.Close()
 	//пакуем песню в бд
@@ -72,7 +90,7 @@ func (s Server) AddSongHandler(w http.ResponseWriter, r *http.Request) {
 // а имя песни изменить никак нельзя, песни вроде как не меняют имена, верно?
 func (s Server) UpdateSongHandler(w http.ResponseWriter, r *http.Request) {
 	s.log.Info("UpdateSongHandler: connected to UpdateSongHandler", zap.String("method", r.Method), zap.String("path", r.URL.Path))
-	var song postgres.Song
+	var song domain.Song
 	//читаем запрос
 	if err := json.NewDecoder(r.Body).Decode(&song); err != nil {
 		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
@@ -101,7 +119,7 @@ func (s Server) UpdateSongHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s Server) GetLibraryHandler(w http.ResponseWriter, r *http.Request) {
 	s.log.Info("GetLibraryHandler: connected to GetLibraryHandler", zap.String("method", r.Method))
-	var filter postgres.SongFilter //todo надо проверить работает ли фильтр
+	var filter domain.SongFilter
 	//читаем запрос
 	if err := json.NewDecoder(r.Body).Decode(&filter); err != nil { //пагинация реализованна в фильтре
 		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
