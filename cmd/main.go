@@ -8,6 +8,7 @@ import (
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq" //драйвер postgres
 	"go.uber.org/zap"
+	swagger "mobileSongLibrary/gates/apiservice"
 
 	"mobileSongLibrary/gates/postgres"
 	"mobileSongLibrary/gates/server"
@@ -38,8 +39,13 @@ func main() {
 	}
 	db := postgres.NewDB(conn) //переменная базы данных
 
+	client, err := swagger.NewClient(os.Getenv("API_HOST"))
+	if err != nil {
+		panic(err)
+	}
+
 	router := chi.NewRouter()
-	_ = server.NewServer(ctx, router, db, log)
+	_ = server.NewServer(ctx, router, db, log, client)
 
 	log.Info("Starting server at port: " + os.Getenv("SERVER_PORT"))
 	err = http.ListenAndServe(os.Getenv("SERVER_HOST")+":"+os.Getenv("SERVER_PORT"), router)
