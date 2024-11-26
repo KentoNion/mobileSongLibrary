@@ -6,6 +6,7 @@ import (
 	"github.com/labstack/gommon/log"
 	_ "github.com/lib/pq" //драйвер postgres
 	"github.com/stretchr/testify/require"
+	"mobileSongLibrary/domain"
 	"testing"
 )
 
@@ -20,7 +21,7 @@ func TestInsertUpdateSelectGetLibraryRenameGroupDelete(t *testing.T) {
 	db := NewDB(conn)
 
 	//создание тестовых песен для загрузки в бд
-	testSongs := []Song{
+	testSongs := []domain.Song{
 		{
 			GroupName:   "muse",
 			SongName:    "Supermassive Black Hole",
@@ -50,7 +51,7 @@ func TestInsertUpdateSelectGetLibraryRenameGroupDelete(t *testing.T) {
 		require.NoError(t, err)
 	}
 	//проверяем метод update
-	err = db.UpdateSong(Song{
+	err = db.UpdateSong(domain.Song{
 		GroupName:   "Buku",
 		SongName:    "Front to Back",
 		ReleaseDate: "31.08.2016",
@@ -65,7 +66,7 @@ func TestInsertUpdateSelectGetLibraryRenameGroupDelete(t *testing.T) {
 	require.NoError(t, err)
 
 	//получаем список всех песен, и проверяем работу фильтра по группе (новое имя группы)
-	testLibrary, err := db.GetLibrary(ctx, SongFilter{GroupName: "Muse"})
+	testLibrary, err := db.GetLibrary(ctx, domain.SongFilter{GroupName: "Muse"})
 	require.NoError(t, err)
 	require.Equal(t, "13.01.2022", testLibrary[1].ReleaseDate)
 
@@ -74,7 +75,7 @@ func TestInsertUpdateSelectGetLibraryRenameGroupDelete(t *testing.T) {
 	err = db.DeleteSong("Muse", "WON'T STAND DOWN")
 	err = db.DeleteSong("Buku", "Front to Back")
 	require.NoError(t, err)
-	testLibrary, err = db.GetLibrary(ctx, SongFilter{})
+	testLibrary, err = db.GetLibrary(ctx, domain.SongFilter{})
 	require.NoError(t, err)
 	var emptyLibrary []Song
 	require.Equal(t, emptyLibrary, testLibrary)
