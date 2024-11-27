@@ -33,12 +33,12 @@ func NewServer(ctx context.Context, router *chi.Mux, db *postgres.DB, log *zap.L
 		client:  client,
 	}
 
-	router.HandleFunc("/Library", server.GetLibraryHandler)
-	router.HandleFunc("/song", server.GetSongHandler)
-	router.HandleFunc("/deletesong", server.DeleteSongHandler)
-	router.HandleFunc("/uploadsong", server.AddSongHandler)
-	router.HandleFunc("/updatesong", server.UpdateSongHandler)
-	router.HandleFunc("/renamegroup", server.RenameGroupHandler)
+	router.Method(http.MethodGet, "/library", http.HandlerFunc(server.GetLibraryHandler))      //Хендлер на получение всей библиотеки песен
+	router.Method(http.MethodGet, "song", http.HandlerFunc(server.GetSongHandler))             //хендлер на получение конкретной песни
+	router.Method(http.MethodDelete, "/song", http.HandlerFunc(server.DeleteSongHandler))      //Хендлер на удаление конкретной песни
+	router.Method(http.MethodPost, "/song", http.HandlerFunc(server.AddSongHandler))           //хендлер на добавление новой песни
+	router.Method(http.MethodPut, "/song", http.HandlerFunc(server.UpdateSongHandler))         //Хендлер на изменение данных песни                                                         //router.HandleFunc("/updatesong", server.UpdateSongHandler)
+	router.Method(http.MethodPut, "/renamegroup", http.HandlerFunc(server.RenameGroupHandler)) //Хендлер на изменение название группы
 
 	server.log.Info("router configured")
 	return server
