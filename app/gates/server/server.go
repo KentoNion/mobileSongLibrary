@@ -4,19 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/go-chi/chi/v5"
-	"go.uber.org/zap"
+	"log/slog"
 	"mobileSongLibrary/domain"
 	swagger "mobileSongLibrary/gates/apiservice"
-	"mobileSongLibrary/gates/postgres"
+	"mobileSongLibrary/gates/storage"
 	"net/http"
 	"strconv"
 	"strings"
 )
 
 type Server struct {
-	db      *postgres.DB
+	db      *storage.DB
 	context context.Context
-	log     *zap.Logger
+	log     *slog.Logger
 	client  swagger.ClientInterface
 }
 
@@ -25,16 +25,16 @@ type groupRename struct {
 	newName string
 }
 
-func NewServer(ctx context.Context, router *chi.Mux, db *postgres.DB, log *zap.Logger, client swagger.ClientInterface) *Server {
+func NewServer(router *chi.Mux, db *storage.DB, log *slog.Logger, client swagger.ClientInterface) *Server {
 	server := &Server{
 		db:      db,
-		context: ctx,
+		context: context.Background(),
 		log:     log,
 		client:  client,
 	}
 
 	router.Method(http.MethodGet, "/library", http.HandlerFunc(server.GetLibraryHandler))      //Хендлер на получение всей библиотеки песен
-	router.Method(http.MethodGet, "song", http.HandlerFunc(server.GetSongHandler))             //хендлер на получение конкретной песни
+	router.Method(http.MethodGet, "/song", http.HandlerFunc(server.GetSongHandler))            //хендлер на получение конкретной песни
 	router.Method(http.MethodDelete, "/song", http.HandlerFunc(server.DeleteSongHandler))      //Хендлер на удаление конкретной песни
 	router.Method(http.MethodPost, "/song", http.HandlerFunc(server.AddSongHandler))           //хендлер на добавление новой песни
 	router.Method(http.MethodPut, "/song", http.HandlerFunc(server.UpdateSongHandler))         //Хендлер на изменение данных песни                                                         //router.HandleFunc("/updatesong", server.UpdateSongHandler)
@@ -45,56 +45,64 @@ func NewServer(ctx context.Context, router *chi.Mux, db *postgres.DB, log *zap.L
 }
 
 func (s Server) AddSongHandler(w http.ResponseWriter, r *http.Request) {
-	s.log.Info("AddSongHandler: connected to AddSongHandler", zap.String("method", r.Method), zap.String("path", r.URL.Path))
+	const op = "gates.Server.AddSongHandler"
+
+	s.log.Info(op, "connected to AddSongHandler", "trying to add song")
 	var song domain.Song
 	//читаем запрос
 	if err := json.NewDecoder(r.Body).Decode(&song); err != nil {
 		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
-		s.log.Error("Failed to decode request body", zap.Error(err))
+		s.log.Error(op, "failed to decode song", err)
 		return
 	}
 	err := song.Validate() //проверка на не пустые параметры group и song
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		s.log.Error("Invalid request body", zap.String("method", r.Method), zap.String("path", r.URL.Path))
+		s.log.Error(op, "failed to validate song", err)
 	}
 
 	//реализация API
-	response, err := s.client.GetInfo(r.Context(), &swagger.GetInfoParams{song.GroupName, song.SongName})
+	response, err := s.client.GetInfo(r.Context(), &swagger.GetInfoParams{string(song.GroupName), string(song.SongName)})
 	if err != nil {
-		s.log.Error("Failed to get info", zap.String("method", r.Method), zap.String("path", r.URL.Path))
+		s.log.Error(op, "failed to get info", err)
 		http.Error(w, "Failed to get info: "+err.Error(), http.StatusInternalServerError)
 	}
 	defer response.Body.Close()
 	var songDetail swagger.SongDetail
 	json.NewDecoder(response.Body).Decode(&songDetail)
 
-	song.Link = songDetail.Link
+	song.Link = domain.Link(songDetail.Link)
 	song.Text = songDetail.Text
-	song.ReleaseDate = songDetail.ReleaseDate
+	song.ReleaseDate, err = domain.ParseTime(songDetail.ReleaseDate)
+	if err != nil {
+		s.log.Error(op, "failed to parse release date", err)
+		http.Error(w, "Failed to get release date: "+err.Error(), http.StatusInternalServerError)
+	}
 
 	defer r.Body.Close()
 	//пакуем песню в бд
 	err = s.db.AddSong(song)
 	if err != nil {
-		s.log.Error("Failed to add song", zap.Error(err))
+		s.log.Error(op, "failed to add song", err)
 		http.Error(w, "Failed to add song", http.StatusInternalServerError)
 		return
 	}
 	//всё ок
-	s.log.Info("AddSongHandler: successfully added song")
+	s.log.Info(op, "song added successfully", song.SongName)
 	w.WriteHeader(http.StatusCreated)
 }
 
 // обновит все старые данные на новые если строка не будет пустой (кроме имени группы и названии песни, он в renameGroupHandler),
 // а имя песни изменить никак нельзя, песни вроде как не меняют имена, верно?
 func (s Server) UpdateSongHandler(w http.ResponseWriter, r *http.Request) {
-	s.log.Info("UpdateSongHandler: connected to UpdateSongHandler", zap.String("method", r.Method), zap.String("path", r.URL.Path))
+	const op = "gates.Server.UpdateSongHandler"
+
+	s.log.Info(op)
 	var song domain.Song
 	//читаем запрос
 	if err := json.NewDecoder(r.Body).Decode(&song); err != nil {
 		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
-		s.log.Error("Failed to decode request body", zap.Error(err))
+		s.log.Error(op, "failed to decode song", err)
 		return
 	}
 	defer r.Body.Close()
@@ -102,13 +110,13 @@ func (s Server) UpdateSongHandler(w http.ResponseWriter, r *http.Request) {
 	err := song.Validate() //проверка на не пустые параметры group и song
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		s.log.Error("Invalid request body", zap.String("method", r.Method), zap.String("path", r.URL.Path))
+		s.log.Error(op, "failed to validate song", err)
 	}
 
 	//обновляем песню
 	err = s.db.UpdateSong(song)
 	if err != nil {
-		s.log.Error("Failed to update song", zap.Error(err))
+		s.log.Error(op, "failed to update song", err)
 		http.Error(w, "Failed to update song", http.StatusInternalServerError)
 		return
 	}
@@ -118,27 +126,30 @@ func (s Server) UpdateSongHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s Server) GetLibraryHandler(w http.ResponseWriter, r *http.Request) {
-	s.log.Info("GetLibraryHandler: connected to GetLibraryHandler", zap.String("method", r.Method))
+	const op = "gates.Server.GetLibraryHandler"
+
+	s.log.Info(op, "connected to GetLibraryHandler", "trying to get library")
 	var filter domain.SongFilter
 	//читаем запрос
 	if err := json.NewDecoder(r.Body).Decode(&filter); err != nil { //пагинация реализованна в фильтре
 		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
-		s.log.Error("Failed to decode request body", zap.Error(err))
+		s.log.Error(op, "failed to decode filter", err)
 		return
 	}
+	s.log.Debug(op, "got filter: ", filter)
 	defer r.Body.Close()
 	//достаём библиотеку наших хитов из бд
 	library, err := s.db.GetLibrary(s.context, filter)
 	if err != nil {
 		http.Error(w, "Failed to retrieve library: "+err.Error(), http.StatusInternalServerError)
-		s.log.Error("Failed to retrieve library", zap.Error(err))
+		s.log.Error(op, "failed to retrieve library", err)
 		return
 	}
 	//формируем ответ в Джейсона
 	response, err := json.Marshal(library)
 	if err != nil {
 		http.Error(w, "Failed to encode response: "+err.Error(), http.StatusInternalServerError)
-		s.log.Error("Failed to encode response", zap.Error(err))
+		s.log.Error(op, "failed to encode response", err)
 		return
 	}
 	//загружаем в интернеты
@@ -149,12 +160,14 @@ func (s Server) GetLibraryHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s Server) GetSongHandler(w http.ResponseWriter, r *http.Request) {
-	s.log.Info("GetSongHandler: connected to GetSongHandler", zap.String("method", r.Method))
-	var song postgres.Song
+	const op = "gates.Server.GetSongHandler"
+
+	s.log.Info(op, "connected to GetSongHandler", "trying to get song")
+	var song storage.Song
 	//читаем запрос
 	if err := json.NewDecoder(r.Body).Decode(&song); err != nil {
 		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
-		s.log.Error("Failed to decode request body", zap.Error(err))
+		s.log.Error(op, "failed to decode song", err)
 		return
 	}
 	defer r.Body.Close()
@@ -162,7 +175,7 @@ func (s Server) GetSongHandler(w http.ResponseWriter, r *http.Request) {
 	err := song.Validate() //проверка на не пустые параметры group и song
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		s.log.Error("Invalid request body", zap.String("method", r.Method), zap.String("path", r.URL.Path))
+		s.log.Error(op, "failed to validate song", err)
 	}
 
 	//Получение параметров пагинации из запроса
@@ -180,10 +193,10 @@ func (s Server) GetSongHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	//вытаскиваем песню из дб
-	song, err = s.db.GetSong(song.GroupName, song.SongName)
+	song, err = s.db.GetSong((song.GroupName), song.SongName)
 	if err != nil {
 		http.Error(w, "Failed to retrieve song: "+err.Error(), http.StatusInternalServerError)
-		s.log.Error("Failed to retrieve song", zap.Error(err))
+		s.log.Error(op, "failed to retrieve song", err)
 	}
 
 	//пагинация
@@ -212,7 +225,7 @@ func (s Server) GetSongHandler(w http.ResponseWriter, r *http.Request) {
 	response, err := json.Marshal(resp)
 	if err != nil {
 		http.Error(w, "Failed to encode response: "+err.Error(), http.StatusInternalServerError)
-		s.log.Error("Failed to encode response", zap.Error(err))
+		s.log.Error(op, "failed to encode response", err)
 	}
 	w.Header().Set("Content-Type", "application/json") //загружаем
 	w.WriteHeader(http.StatusOK)
@@ -221,12 +234,14 @@ func (s Server) GetSongHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s Server) DeleteSongHandler(w http.ResponseWriter, r *http.Request) {
-	s.log.Info("DeleteSongHandler: connected to DeleteSongHandler", zap.String("method", r.Method))
-	var song postgres.Song
+	const op = "gates.Server.DeleteSongHandler"
+
+	s.log.Info(op, "connected to DeleteSongHandler", "trying to delete song")
+	var song storage.Song
 	//читаем запрос
 	if err := json.NewDecoder(r.Body).Decode(&song); err != nil {
 		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
-		s.log.Error("Failed to decode request body", zap.Error(err))
+		s.log.Error(op, "failed to decode song", err)
 		return
 	}
 	defer r.Body.Close()
@@ -234,27 +249,29 @@ func (s Server) DeleteSongHandler(w http.ResponseWriter, r *http.Request) {
 	err := song.Validate() //проверка на не пустые параметры group и song
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		s.log.Error("Invalid request body", zap.String("method", r.Method), zap.String("path", r.URL.Path))
+		s.log.Error(op, "failed to validate song", err)
 	}
 
 	//удаляем песню из бд
 	err = s.db.DeleteSong(song.GroupName, song.SongName)
 	if err != nil {
 		http.Error(w, "Failed to delete song: "+err.Error(), http.StatusInternalServerError)
-		s.log.Error("Failed to delete song", zap.Error(err))
+		s.log.Error(op, "failed to delete song", err)
 	}
 	//пишем что всё ок
 	s.log.Info("DeleteSongHandler: successfully deleted song")
-	w.WriteHeader(http.StatusNoContent) //todo так чтоль? или статус ок?
+	w.WriteHeader(http.StatusOK)
 }
 
 func (s Server) RenameGroupHandler(w http.ResponseWriter, r *http.Request) {
-	s.log.Info("RenameGroupHandler: connected to RenameGroupHandler", zap.String("method", r.Method))
+	const op = "gates.Server.RenameGroupHandler"
+
+	s.log.Info(op, "connected to RenameGroupHandler", "trying to rename group")
 	var group groupRename
 	//читаем запрос
 	if err := json.NewDecoder(r.Body).Decode(&group); err != nil {
 		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
-		s.log.Error("Failed to decode request body", zap.Error(err))
+		s.log.Error(op, "failed to decode group", err)
 		return
 	}
 	defer r.Body.Close()
@@ -262,7 +279,7 @@ func (s Server) RenameGroupHandler(w http.ResponseWriter, r *http.Request) {
 	err := s.db.GroupRename(group.oldName, group.newName)
 	if err != nil {
 		http.Error(w, "Failed to rename song: "+err.Error(), http.StatusInternalServerError)
-		s.log.Error("Failed to rename song", zap.Error(err))
+		s.log.Error(op, "failed to rename song", err)
 		return
 	}
 	//всё ок
