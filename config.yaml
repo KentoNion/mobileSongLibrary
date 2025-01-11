@@ -10,6 +10,3 @@ postgres_db:
   host: "localhost" #ignored if used by docker
   sslmode: "disable"
   port: "8079"
-swagger_client:
-  host: "localhost"
-  port: "8081"

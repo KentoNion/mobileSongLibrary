@@ -23,17 +23,11 @@ type Log struct {
 	FilePath string `yaml:"logger_file_path"`
 }
 
-type SwagCli struct {
-	Host string `yaml:"host" env-required:"true"`
-	Port string `yaml:"port" env-required:"true"`
-}
-
 type Config struct {
-	Env     string  `yaml:"env"`
-	DB      DB      `yaml:"postgres_db"`
-	Rest    Rest    `yaml:"RestServer"`
-	Log     Log     `yaml:"logger"`
-	SwagCli SwagCli `yaml:"swagger_client"`
+	Env  string `yaml:"env"`
+	DB   DB     `yaml:"postgres_db"`
+	Rest Rest   `yaml:"RestServer"`
+	Log  Log    `yaml:"logger"`
 }
 
 func MustLoad() *Config {

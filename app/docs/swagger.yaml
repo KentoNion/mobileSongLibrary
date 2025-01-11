@@ -1,0 +1,191 @@
+definitions:
+  domain.Song:
+    properties:
+      group:
+        type: string
+      link:
+        type: string
+      release_date:
+        type: string
+      song:
+        type: string
+      text:
+        type: string
+    type: object
+  domain.SongFilter:
+    properties:
+      group:
+        type: string
+      limit:
+        type: integer
+      offset:
+        type: integer
+      release_date:
+        type: string
+      song:
+        type: string
+      text:
+        type: string
+    type: object
+  server.groupRename:
+    properties:
+      new_name:
+        type: string
+      old_name:
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /library:
+    post:
+      consumes:
+      - application/json
+      description: Возвращает список всех песен с возможностью фильтрации
+      parameters:
+      - description: Фильтр для поиска песен
+        in: body
+        name: filter
+        required: true
+        schema:
+          $ref: '#/definitions/domain.SongFilter'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Song'
+            type: array
+        "400":
+          description: Некорректный запрос
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Получить всю библиотеку песен
+      tags:
+      - Library
+  /renamegroup:
+    patch:
+      consumes:
+      - application/json
+      description: Изменяет название музыкальной группы
+      parameters:
+      - description: Старое и новое название группы
+        in: body
+        name: groupRename
+        required: true
+        schema:
+          $ref: '#/definitions/server.groupRename'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Группа успешно переименована
+          schema:
+            type: string
+        "400":
+          description: Некорректный запрос
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Переименовать группу
+      tags:
+      - Groups
+  /song:
+    delete:
+      consumes:
+      - application/json
+      description: Удаляет песню по названию и группе
+      parameters:
+      - description: Название группы и песни для удаления
+        in: body
+        name: song
+        required: true
+        schema:
+          $ref: '#/definitions/domain.Song'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Успешное удаление
+          schema:
+            type: string
+        "400":
+          description: Некорректный запрос
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Удалить песню
+      tags:
+      - Songs
+    patch:
+      consumes:
+      - application/json
+      description: Обновляет данные о песне, кроме её названия
+      parameters:
+      - description: Обновлённые данные песни
+        in: body
+        name: song
+        required: true
+        schema:
+          $ref: '#/definitions/domain.Song'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Песня успешно обновлена
+          schema:
+            type: string
+        "400":
+          description: Некорректный запрос
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Обновить информацию о песне
+      tags:
+      - Songs
+    post:
+      consumes:
+      - application/json
+      description: Возвращает данные о песне с пагинацией текста
+      parameters:
+      - description: Название группы и песни
+        in: body
+        name: song
+        required: true
+        schema:
+          $ref: '#/definitions/domain.Song'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Некорректный запрос
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Получить информацию о песне
+      tags:
+      - Songs
+swagger: "2.0"

@@ -110,8 +110,8 @@ func (p *DB) GroupRename(oldGroupName string, newGroupName string) error {
 	const op = "storage.postgres.GroupRename"
 
 	p.log.Debug(op, "trying to rename group: ", oldGroupName, " to ", newGroupName)
-	query := p.sq.Update("songs_library")
-	query = query.Set("group_name", newGroupName).
+	query := p.sq.Update("songs_library").
+		Set("group_name", newGroupName).
 		Where(sq.Eq{"group_name": oldGroupName})
 	qry, args, err := query.ToSql()
 	if err != nil {
@@ -119,7 +119,6 @@ func (p *DB) GroupRename(oldGroupName string, newGroupName string) error {
 		return err
 	}
 	_, err = p.db.Exec(qry, args...)
-	//updated_at обновляется с помощью триггера
 	if err != nil {
 		p.log.Error(op, " ERROR: ", err)
 		return err
@@ -177,10 +176,11 @@ func (p *DB) GetLibrary(ctx context.Context, filter domain.SongFilter) ([]domain
 	const op = "storage.postgres.GetLibrary"
 
 	p.log.Debug(op, "trying to get songs, filter is: ", filter)
+
 	// Создаем базовый запрос
 	query := p.sm.Select(p.sq.Select(), &Song{}).From("songs_library")
 
-	// Фильтрация по значениям фильтра
+	// Фильтрация
 	if filter.GroupName != "" {
 		query = query.Where("group_name = ?", filter.GroupName)
 	}
@@ -194,7 +194,7 @@ func (p *DB) GetLibrary(ctx context.Context, filter domain.SongFilter) ([]domain
 		query = query.Where("text LIKE ?", "%"+filter.Text+"%")
 	}
 
-	// Пагинация (если задан лимит)
+	// Пагинация
 	if filter.Limit > 0 {
 		query = query.Limit(uint64(filter.Limit)).Offset(uint64(filter.Offset))
 	}
@@ -209,16 +209,18 @@ func (p *DB) GetLibrary(ctx context.Context, filter domain.SongFilter) ([]domain
 
 	// Выполняем запрос
 	var storSongs []Song
-	var songs []domain.Song
-	err = p.db.SelectContext(ctx, &songs, qry, args...)
+	err = p.db.SelectContext(ctx, &storSongs, qry, args...)
 	if err != nil {
 		p.log.Error(op, " ERROR: ", err)
 		return nil, err
 	}
-	//перегоняем стораж сонги в домейн сонги (в частности просто переделываем формат даты релиза в них)
-	for _, j := range storSongs {
-		songs = append(songs, ToDomain(j))
+
+	// Преобразуем в domain.Song
+	var songs []domain.Song
+	for _, storSong := range storSongs {
+		songs = append(songs, ToDomain(storSong))
 	}
+
 	p.log.Debug(op, "Successfully retrieved songs", "")
 	return songs, nil
 }

@@ -50,20 +50,20 @@ func main() {
 	}
 
 	//накатываем миграцию
-	//err = goose.Down(conn.DB, migrationsPath)
+	err = goose.Down(conn.DB, migrationsPath)
 	err = goose.Up(conn.DB, migrationsPath)
 	if err != nil {
 		panic(err)
 	}
 	//инициализируем сваггер
 	restServerAddr := cfg.Rest.Host + ":" + cfg.Rest.Port
-	client, err := swagger.NewClient(cfg.SwagCli.Host + ":" + cfg.SwagCli.Port)
+	client, err := swagger.NewClient("http://" + restServerAddr)
 	if err != nil {
 		panic(err)
 	}
 
 	router := chi.NewRouter()
-	_ = server.NewServer(router, db, log, client)
+	_ = server.NewServer(router, db, log, client, cfg)
 
 	log.Info("Starting server at port: " + cfg.Rest.Port)
 	err = http.ListenAndServe(restServerAddr, router)

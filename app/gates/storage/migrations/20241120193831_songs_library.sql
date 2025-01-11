@@ -1,5 +1,5 @@
 -- +goose Up
-ALTER DATABASE songs_library SET timezone TO 'UTC';
+ALTER DATABASE mobile_song SET timezone TO 'UTC';
 -- Создаем таблицу songs
 CREATE TABLE songs_library (
     group_name VARCHAR(255) NOT NULL,
