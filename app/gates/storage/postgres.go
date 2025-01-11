@@ -27,7 +27,7 @@ func NewDB(db *sqlx.DB, log *slog.Logger) *DB {
 	}
 }
 
-func (p *DB) AddSong(song domain.Song) error { //функция добавления новой песни
+func (p *DB) AddSong(song Song) error { //функция добавления новой песни
 	const op = "storage.postgres.AddSong"
 
 	p.log.Debug(op, "trying to add Song: ", song.SongName)
@@ -62,7 +62,7 @@ func (p *DB) AddSong(song domain.Song) error { //функция добавлен
 	return nil
 }
 
-func (p *DB) UpdateSong(song domain.Song) error {
+func (p *DB) UpdateSong(song Song) error {
 	const op = "storage.postgres.UpdateSong"
 
 	p.log.Debug(op, "trying to update Song: ", song.SongName)
@@ -128,26 +128,27 @@ func (p *DB) GroupRename(oldGroupName string, newGroupName string) error {
 	return nil
 }
 
-func (p *DB) GetSong(group domain.GroupName, song domain.SongName) (Song, error) {
+func (p *DB) GetSong(group domain.GroupName, songName domain.SongName) (domain.Song, error) {
 	const op = "storage.postgres.GetSong"
 
-	p.log.Debug(op, "trying to get Song: ", song)
-	var result Song
+	p.log.Debug(op, "trying to get Song: ", songName)
+	var storSong Song
+	var result domain.Song
 	query := p.sm.Select(p.sq.Select(), &Song{}).
 		From("songs_library").
-		Where(sq.Eq{"group_name": group, "Song": song})
+		Where(sq.Eq{"group_name": group, "Song": songName})
 	qry, args, err := query.ToSql()
 	if err != nil {
 		p.log.Error(op, " ERROR: ", err)
 		return result, err
 	}
-	err = p.db.Get(&result, qry, args...)
+	err = p.db.Get(&storSong, qry, args...)
 	if err != nil {
 		p.log.Error(op, " ERROR: ", err)
 		return result, err
 	}
-	result.ReleaseDate = result.ReleaseDate
-	p.log.Debug(op, "Successfully retrieved Song: ", song)
+	p.log.Debug(op, "Successfully retrieved Song: ", songName)
+	result = ToDomain(storSong)
 	return result, nil
 }
 
@@ -172,7 +173,7 @@ func (p *DB) DeleteSong(group domain.GroupName, song domain.SongName) error {
 	return nil
 }
 
-func (p *DB) GetLibrary(ctx context.Context, filter domain.SongFilter) ([]Song, error) {
+func (p *DB) GetLibrary(ctx context.Context, filter domain.SongFilter) ([]domain.Song, error) {
 	const op = "storage.postgres.GetLibrary"
 
 	p.log.Debug(op, "trying to get songs, filter is: ", filter)
@@ -189,6 +190,9 @@ func (p *DB) GetLibrary(ctx context.Context, filter domain.SongFilter) ([]Song, 
 	if !filter.ReleaseDate.IsZero() {
 		query = query.Where("release_date = ?", filter.ReleaseDate)
 	}
+	if filter.Text != "" {
+		query = query.Where("text LIKE ?", "%"+filter.Text+"%")
+	}
 
 	// Пагинация (если задан лимит)
 	if filter.Limit > 0 {
@@ -204,11 +208,16 @@ func (p *DB) GetLibrary(ctx context.Context, filter domain.SongFilter) ([]Song, 
 	p.log.Debug(op, "qry: ", qry, "args: ", args)
 
 	// Выполняем запрос
-	var songs []Song
+	var storSongs []Song
+	var songs []domain.Song
 	err = p.db.SelectContext(ctx, &songs, qry, args...)
 	if err != nil {
 		p.log.Error(op, " ERROR: ", err)
 		return nil, err
+	}
+	//перегоняем стораж сонги в домейн сонги (в частности просто переделываем формат даты релиза в них)
+	for _, j := range storSongs {
+		songs = append(songs, ToDomain(j))
 	}
 	p.log.Debug(op, "Successfully retrieved songs", "")
 	return songs, nil

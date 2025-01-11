@@ -2,19 +2,22 @@ package domain
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 )
 
 type GroupName string
 type SongName string
 type Link string
+type CustomDate time.Time
 
 type Song struct {
-	GroupName   GroupName `json:"group"`
-	SongName    SongName  `json:"song"`
-	ReleaseDate time.Time `json:"release_date,omitempty"`
-	Text        string    `json:"text,omitempty"`
-	Link        Link      `json:"link,omitempty"`
+	GroupName   GroupName  `json:"group"`
+	SongName    SongName   `json:"song"`
+	ReleaseDate CustomDate `json:"release_date,omitempty"`
+	Text        string     `json:"text,omitempty"`
+	Link        Link       `json:"link,omitempty"`
 }
 
 // Структура реализующая фильтры
@@ -22,6 +25,7 @@ type SongFilter struct {
 	GroupName   string    `db:"group_name" json:"group"`
 	SongName    string    `db:"song" json:"song"`
 	ReleaseDate time.Time `db:"release_date" json:"release_date,omitempty"`
+	Text        string    `db:"text" json:"text,omitempty"`
 	Limit       int       `json:"limit,omitempty"`
 	Offset      int       `json:"offset,omitempty"`
 }
@@ -36,10 +40,29 @@ func (s *Song) Validate() error {
 	return nil
 }
 
-func ParseTime(timeStr string) (time.Time, error) {
-	parsedTime, err := time.Parse("02.01.2006", timeStr)
+func ParseCustomDate(dateStr string) (CustomDate, error) {
+	const customDateFormat = "02.01.2006"
+	parsedTime, err := time.Parse(customDateFormat, dateStr)
 	if err != nil {
-		return time.Time{}, err
+		return CustomDate{}, err
 	}
-	return parsedTime, nil
+	return CustomDate(parsedTime), nil
+}
+
+// Процесс маршализации и демаршализации json для даты
+const customDateFormat = "02.01.2006"
+
+func (cd CustomDate) MarshalJSON() ([]byte, error) {
+	t := time.Time(cd)
+	return []byte(fmt.Sprintf("\"%s\"", t.Format(customDateFormat))), nil
+}
+
+func (cd *CustomDate) UnmarshalJSON(data []byte) error {
+	str := strings.Trim(string(data), "\"")
+	t, err := time.Parse(customDateFormat, str)
+	if err != nil {
+		return err
+	}
+	*cd = CustomDate(t)
+	return nil
 }

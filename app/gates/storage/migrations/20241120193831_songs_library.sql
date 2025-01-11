@@ -11,6 +11,11 @@ CREATE TABLE songs_library (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     PRIMARY KEY (group_name, song)
 );
+--выставил индексы на самые частые варианты поиска песни
+CREATE INDEX idx_song ON songs_library(song);
+CREATE INDEX idx_group ON songs_library(group_name);
 -- +goose Down
 -- Удаляем таблицу songs_library
+DROP INDEX IF EXISTS idx_song;
+DROP INDEX IF EXISTS idx_group;
 DROP TABLE IF EXISTS songs_library;

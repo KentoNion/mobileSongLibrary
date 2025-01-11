@@ -15,6 +15,13 @@ import (
 	"os"
 )
 
+//@title mobileSongLibrary
+//@version 1.0.0
+//@description API Server for songLibrary application
+
+//@host sets with config
+//@BasePath /
+
 func main() {
 	const op = "cmd.main"
 	//Считываем конфиг
@@ -50,7 +57,7 @@ func main() {
 	}
 	//инициализируем сваггер
 	restServerAddr := cfg.Rest.Host + ":" + cfg.Rest.Port
-	client, err := swagger.NewClient(restServerAddr)
+	client, err := swagger.NewClient(cfg.SwagCli.Host + ":" + cfg.SwagCli.Port)
 	if err != nil {
 		panic(err)
 	}

@@ -39,7 +39,7 @@ func TestInsertUpdateSelectGetLibraryRenameGroupDelete(t *testing.T) {
 	db := NewDB(conn, log)
 
 	//создание тестовых песен для загрузки в бд
-	testSongs := []domain.Song{
+	testSongs := []Song{
 		{
 			GroupName:   "muse",
 			SongName:    "Supermassive Black Hole",
@@ -69,7 +69,7 @@ func TestInsertUpdateSelectGetLibraryRenameGroupDelete(t *testing.T) {
 		require.NoError(t, err)
 	}
 	//проверяем метод update
-	err = db.UpdateSong(domain.Song{
+	err = db.UpdateSong(Song{
 		GroupName:   "Buku",
 		SongName:    "Front to Back",
 		ReleaseDate: time.Date(2006, time.July, 16, 0, 0, 0, 0, time.UTC),

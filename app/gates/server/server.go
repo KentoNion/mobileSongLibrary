@@ -25,7 +25,16 @@ type groupRename struct {
 	newName string
 }
 
+type SongsStorage interface {
+	AddSong(song storage.Song) error
+	UpdateSong(song storage.Song) error
+	GetSong(group domain.GroupName, songName domain.SongName) (domain.Song, error)
+	DeleteSong(group domain.GroupName, song domain.SongName) error
+	GetLibrary(ctx context.Context, filter domain.SongFilter) ([]domain.Song, error)
+}
+
 func NewServer(router *chi.Mux, db *storage.DB, log *slog.Logger, client swagger.ClientInterface) *Server {
+	const op = "gates.Server.NewServer"
 	server := &Server{
 		db:      db,
 		context: context.Background(),
@@ -37,10 +46,12 @@ func NewServer(router *chi.Mux, db *storage.DB, log *slog.Logger, client swagger
 	router.Method(http.MethodGet, "/song", http.HandlerFunc(server.GetSongHandler))            //хендлер на получение конкретной песни
 	router.Method(http.MethodDelete, "/song", http.HandlerFunc(server.DeleteSongHandler))      //Хендлер на удаление конкретной песни
 	router.Method(http.MethodPost, "/song", http.HandlerFunc(server.AddSongHandler))           //хендлер на добавление новой песни
-	router.Method(http.MethodPut, "/song", http.HandlerFunc(server.UpdateSongHandler))         //Хендлер на изменение данных песни                                                         //router.HandleFunc("/updatesong", server.UpdateSongHandler)
+	router.Method(http.MethodPut, "/song", http.HandlerFunc(server.UpdateSongHandler))         //Хендлер на изменение данных песни
 	router.Method(http.MethodPut, "/renamegroup", http.HandlerFunc(server.RenameGroupHandler)) //Хендлер на изменение название группы
 
-	server.log.Info("router configured")
+	//swagger
+	//router.Get("/swagger/*", httpSwagger.Handler(httpSwagger.URL("http://localhost:8080/swagger/doc.json")))
+	server.log.Info(op, "router configured", "")
 	return server
 }
 
@@ -68,12 +79,17 @@ func (s Server) AddSongHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to get info: "+err.Error(), http.StatusInternalServerError)
 	}
 	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		http.Error(w, "Unexpected status code: "+response.Status, http.StatusInternalServerError)
+		return
+	}
+
 	var songDetail swagger.SongDetail
 	json.NewDecoder(response.Body).Decode(&songDetail)
 
 	song.Link = domain.Link(songDetail.Link)
 	song.Text = songDetail.Text
-	song.ReleaseDate, err = domain.ParseTime(songDetail.ReleaseDate)
+	song.ReleaseDate, err = domain.ParseCustomDate(songDetail.ReleaseDate)
 	if err != nil {
 		s.log.Error(op, "failed to parse release date", err)
 		http.Error(w, "Failed to get release date: "+err.Error(), http.StatusInternalServerError)
@@ -81,7 +97,7 @@ func (s Server) AddSongHandler(w http.ResponseWriter, r *http.Request) {
 
 	defer r.Body.Close()
 	//пакуем песню в бд
-	err = s.db.AddSong(song)
+	err = s.db.AddSong(storage.ToStorage(song))
 	if err != nil {
 		s.log.Error(op, "failed to add song", err)
 		http.Error(w, "Failed to add song", http.StatusInternalServerError)
@@ -114,7 +130,7 @@ func (s Server) UpdateSongHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//обновляем песню
-	err = s.db.UpdateSong(song)
+	err = s.db.UpdateSong(storage.ToStorage(song))
 	if err != nil {
 		s.log.Error(op, "failed to update song", err)
 		http.Error(w, "Failed to update song", http.StatusInternalServerError)
@@ -163,7 +179,7 @@ func (s Server) GetSongHandler(w http.ResponseWriter, r *http.Request) {
 	const op = "gates.Server.GetSongHandler"
 
 	s.log.Info(op, "connected to GetSongHandler", "trying to get song")
-	var song storage.Song
+	var song domain.Song
 	//читаем запрос
 	if err := json.NewDecoder(r.Body).Decode(&song); err != nil {
 		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
