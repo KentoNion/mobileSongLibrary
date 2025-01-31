@@ -16,11 +16,8 @@ const docTemplate = `{
     "basePath": "{{.BasePath}}",
     "paths": {
         "/library": {
-            "post": {
-                "description": "Возвращает список всех песен с возможностью фильтрации",
-                "consumes": [
-                    "application/json"
-                ],
+            "get": {
+                "description": "Возвращает список всех песен с возможностью фильтрации через заголовки",
                 "produces": [
                     "application/json"
                 ],
@@ -30,13 +27,46 @@ const docTemplate = `{
                 "summary": "Получить всю библиотеку песен",
                 "parameters": [
                     {
-                        "description": "Фильтр для поиска песен",
-                        "name": "filter",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/domain.SongFilter"
-                        }
+                        "type": "string",
+                        "description": "Название группы",
+                        "name": "group",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Название песни",
+                        "name": "song",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Часть текста песни",
+                        "name": "text",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Ссылка на песню",
+                        "name": "link",
+                        "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Дата релиза в формате 16.07.2006",
+                        "name": "release_date",
+                        "in": "header"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Лимит выдачи",
+                        "name": "limit",
+                        "in": "header"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Смещение выдачи",
+                        "name": "offset",
+                        "in": "header"
                     }
                 ],
                 "responses": {
@@ -111,11 +141,8 @@ const docTemplate = `{
             }
         },
         "/song": {
-            "post": {
+            "get": {
                 "description": "Возвращает данные о песне с пагинацией текста",
-                "consumes": [
-                    "application/json"
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -125,7 +152,69 @@ const docTemplate = `{
                 "summary": "Получить информацию о песне",
                 "parameters": [
                     {
-                        "description": "Название группы и песни",
+                        "type": "string",
+                        "description": "Название группы",
+                        "name": "group",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Название песни",
+                        "name": "song",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Номер страницы (по умолчанию 1)",
+                        "name": "page",
+                        "in": "header"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Количество куплетов на странице (по умолчанию 2)",
+                        "name": "size",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Некорректный запрос",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Добавляет новую песню в библиотеку",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Songs"
+                ],
+                "summary": "Добавить новую песню",
+                "parameters": [
+                    {
+                        "description": "Данные новой песни",
                         "name": "song",
                         "in": "body",
                         "required": true,
@@ -135,11 +224,10 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
+                    "201": {
+                        "description": "Песня успешно добавлена",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "type": "string"
                         }
                     },
                     "400": {
@@ -267,29 +355,6 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.SongFilter": {
-            "type": "object",
-            "properties": {
-                "group": {
-                    "type": "string"
-                },
-                "limit": {
-                    "type": "integer"
-                },
-                "offset": {
-                    "type": "integer"
-                },
-                "release_date": {
-                    "type": "string"
-                },
-                "song": {
-                    "type": "string"
-                },
-                "text": {
-                    "type": "string"
-                }
-            }
-        },
         "server.groupRename": {
             "type": "object",
             "properties": {
@@ -306,12 +371,12 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "",
-	Host:             "",
-	BasePath:         "",
+	Version:          "1.0.0",
+	Host:             "localhost:8080",
+	BasePath:         "/",
 	Schemes:          []string{},
-	Title:            "",
-	Description:      "",
+	Title:            "mobileSongLibrary",
+	Description:      "API Server for songLibrary application",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

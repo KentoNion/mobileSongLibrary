@@ -1,3 +1,4 @@
+basePath: /
 definitions:
   domain.Song:
     properties:
@@ -12,21 +13,6 @@ definitions:
       text:
         type: string
     type: object
-  domain.SongFilter:
-    properties:
-      group:
-        type: string
-      limit:
-        type: integer
-      offset:
-        type: integer
-      release_date:
-        type: string
-      song:
-        type: string
-      text:
-        type: string
-    type: object
   server.groupRename:
     properties:
       new_name:
@@ -34,21 +20,45 @@ definitions:
       old_name:
         type: string
     type: object
+host: localhost:8080
 info:
   contact: {}
+  description: API Server for songLibrary application
+  title: mobileSongLibrary
+  version: 1.0.0
 paths:
   /library:
-    post:
-      consumes:
-      - application/json
-      description: Возвращает список всех песен с возможностью фильтрации
+    get:
+      description: Возвращает список всех песен с возможностью фильтрации через заголовки
       parameters:
-      - description: Фильтр для поиска песен
-        in: body
-        name: filter
-        required: true
-        schema:
-          $ref: '#/definitions/domain.SongFilter'
+      - description: Название группы
+        in: header
+        name: group
+        type: string
+      - description: Название песни
+        in: header
+        name: song
+        type: string
+      - description: Часть текста песни
+        in: header
+        name: text
+        type: string
+      - description: Ссылка на песню
+        in: header
+        name: link
+        type: string
+      - description: Дата релиза в формате 16.07.2006
+        in: header
+        name: release_date
+        type: string
+      - description: Лимит выдачи
+        in: header
+        name: limit
+        type: integer
+      - description: Смещение выдачи
+        in: header
+        name: offset
+        type: integer
       produces:
       - application/json
       responses:
@@ -129,6 +139,46 @@ paths:
       summary: Удалить песню
       tags:
       - Songs
+    get:
+      description: Возвращает данные о песне с пагинацией текста
+      parameters:
+      - description: Название группы
+        in: header
+        name: group
+        required: true
+        type: string
+      - description: Название песни
+        in: header
+        name: song
+        required: true
+        type: string
+      - description: Номер страницы (по умолчанию 1)
+        in: header
+        name: page
+        type: integer
+      - description: Количество куплетов на странице (по умолчанию 2)
+        in: header
+        name: size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Некорректный запрос
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Получить информацию о песне
+      tags:
+      - Songs
     patch:
       consumes:
       - application/json
@@ -161,9 +211,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Возвращает данные о песне с пагинацией текста
+      description: Добавляет новую песню в библиотеку
       parameters:
-      - description: Название группы и песни
+      - description: Данные новой песни
         in: body
         name: song
         required: true
@@ -172,11 +222,10 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
-          description: OK
+        "201":
+          description: Песня успешно добавлена
           schema:
-            additionalProperties: true
-            type: object
+            type: string
         "400":
           description: Некорректный запрос
           schema:
@@ -185,7 +234,7 @@ paths:
           description: Ошибка сервера
           schema:
             type: string
-      summary: Получить информацию о песне
+      summary: Добавить новую песню
       tags:
       - Songs
 swagger: "2.0"

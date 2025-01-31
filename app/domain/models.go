@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+var ErrCantReplaceWithEmptyRows = errors.New("Can't replace any felds with no info")
+
 type GroupName string
 type SongName string
 type Link string
@@ -22,12 +24,13 @@ type Song struct {
 
 // Структура реализующая фильтры
 type SongFilter struct {
-	GroupName   string    `db:"group_name" json:"group"`
-	SongName    string    `db:"song" json:"song"`
-	ReleaseDate time.Time `db:"release_date" json:"release_date,omitempty"`
-	Text        string    `db:"text" json:"text,omitempty"`
-	Limit       int       `json:"limit,omitempty"`
-	Offset      int       `json:"offset,omitempty"`
+	GroupName   string     `db:"group_name" json:"group"`
+	SongName    string     `db:"song" json:"song"`
+	ReleaseDate CustomDate `db:"release_date" json:"release_date,omitempty"`
+	Text        string     `db:"text" json:"text,omitempty"`
+	Link        Link       `db:"link" json:"link,omitempty"`
+	Limit       int        `json:"limit,omitempty"`
+	Offset      int        `json:"offset,omitempty"`
 }
 
 func (s *Song) Validate() error {

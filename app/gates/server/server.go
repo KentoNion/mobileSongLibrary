@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/go-chi/chi/v5"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"log/slog"
@@ -54,10 +53,9 @@ func NewServer(router *chi.Mux, db *storage.DB, log *slog.Logger, client swagger
 	router.Method(http.MethodPost, "/song", http.HandlerFunc(server.AddSongHandler))             //хендлер на добавление новой песни
 	router.Method(http.MethodPatch, "/song", http.HandlerFunc(server.UpdateSongHandler))         //Хендлер на изменение данных песни
 	router.Method(http.MethodPatch, "/renamegroup", http.HandlerFunc(server.RenameGroupHandler)) //Хендлер на изменение название группы
-	router.Method(http.MethodGet, "/info", http.HandlerFunc(server.InfoHandler))
 	//swagger
 	router.Get("/swagger/*", httpSwagger.Handler(
-		httpSwagger.URL("http://localhost:8080/swagger/doc.json"), // Укажите базовый путь
+		httpSwagger.URL("http://localhost:8080/swagger/doc.json"),
 	))
 	server.log.Info(op, "router configured", "")
 	return server
@@ -80,23 +78,24 @@ func (s Server) AddSongHandler(w http.ResponseWriter, r *http.Request) {
 
 	s.log.Info(op, "starting addSongHandler", "")
 	var song domain.Song
-	//читаем запрос
+
+	// Читаем запрос
 	if err := json.NewDecoder(r.Body).Decode(&song); err != nil {
 		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
 		s.log.Error(op, "failed to decode request body", "")
 		return
 	}
-	err := song.Validate() //проверка на не пустые параметры group и song
+
+	err := song.Validate() // Проверка на не пустые параметры group и song
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		s.log.Error(op, "failed to validate request body", "")
 		return
 	}
+	defer r.Body.Close()
 
-	//реализация API
+	// Запрос к внешнему API
 	response, err := s.client.GetInfo(r.Context(), &swagger.GetInfoParams{string(song.GroupName), string(song.SongName)})
-	fmt.Println(string(song.GroupName))
-	fmt.Println(string(song.SongName))
 	s.log.Debug(op, "Request parameters: group=", string(song.GroupName), "song=", string(song.SongName))
 
 	if err != nil {
@@ -105,31 +104,41 @@ func (s Server) AddSongHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer response.Body.Close()
-	var songDetail swagger.SongDetail
-	json.NewDecoder(response.Body).Decode(&songDetail)
 
-	song.Link = domain.Link(songDetail.Link)
-	song.Text = songDetail.Text
-	song.ReleaseDate, err = domain.ParseCustomDate(songDetail.ReleaseDate)
-	if err != nil {
-
-	}
-
-	defer r.Body.Close()
+	// Проверка на успешный статус-код API
 	if response.StatusCode != http.StatusOK {
 		http.Error(w, "Unexpected status code: "+response.Status, http.StatusInternalServerError)
 		s.log.Error(op, "got unexpected status code: ", response.Status)
 		return
 	}
-	//пакуем песню в бд
+
+	// Декодирование ответа API
+	var songDetail swagger.SongDetail
+	if err := json.NewDecoder(response.Body).Decode(&songDetail); err != nil {
+		s.log.Error(op, "failed to decode API response: ", err)
+		http.Error(w, "Failed to decode API response: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Заполнение данных из API
+	song.Link = domain.Link(songDetail.Link)
+	song.Text = songDetail.Text
+	song.ReleaseDate, err = domain.ParseCustomDate(songDetail.ReleaseDate)
+	if err != nil {
+		s.log.Error(op, "failed to parse release date", err)
+		http.Error(w, "Failed to parse release date: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Запись в базу данных
 	err = s.db.AddSong(storage.ToStorage(song))
 	if err != nil {
-		s.log.Error("Failed to add song", err)
+		s.log.Error(op, "Failed to add song", err)
 		http.Error(w, "Failed to add song", http.StatusInternalServerError)
 		return
 	}
-	//всё ок
-	s.log.Info("AddSongHandler: successfully added song")
+
+	s.log.Info(op, "successfully added song")
 	w.WriteHeader(http.StatusCreated)
 }
 
@@ -169,6 +178,11 @@ func (s Server) UpdateSongHandler(w http.ResponseWriter, r *http.Request) {
 
 	//обновляем песню
 	err = s.db.UpdateSong(storage.ToStorage(song))
+	if err == domain.ErrCantReplaceWithEmptyRows {
+		s.log.Debug(op, "nothing no update, everything is empty", err)
+		http.Error(w, "Failed to update song: you provided song with no info, cannot replace update info to nothing", http.StatusInternalServerError)
+		return
+	}
 	if err != nil {
 		s.log.Error(op, "failed to update song", err)
 		http.Error(w, "Failed to update song", http.StatusInternalServerError)
@@ -182,37 +196,56 @@ func (s Server) UpdateSongHandler(w http.ResponseWriter, r *http.Request) {
 // GetLibraryHandler godoc
 //
 // @Summary      Получить всю библиотеку песен
-// @Description  Возвращает список всех песен с возможностью фильтрации
+// @Description  Возвращает список всех песен с возможностью фильтрации через заголовки
 // @Tags         Library
-// @Accept       json
 // @Produce      json
-// @Param        filter  body  domain.SongFilter  true  "Фильтр для поиска песен"
+// @Param        group          header  string  false  "Название группы"
+// @Param        song           header  string  false  "Название песни"
+// @Param        text           header  string  false  "Часть текста песни"
+// @Param        link           header  string  false  "Ссылка на песню"
+// @Param        release_date   header  string  false  "Дата релиза в формате 16.07.2006"
+// @Param        limit          header  int     false  "Лимит выдачи"
+// @Param        offset         header  int     false  "Смещение выдачи"
 // @Success      200     {array}  domain.Song
 // @Failure      400     {object}  string  "Некорректный запрос"
 // @Failure      500     {object}  string  "Ошибка сервера"
-// @Router       /library [post]
+// @Router       /library [get]
 func (s Server) GetLibraryHandler(w http.ResponseWriter, r *http.Request) {
 	const op = "gates.Server.GetLibraryHandler"
 
 	s.log.Info(op, "connected to GetLibraryHandler", "trying to get library")
 
-	// Извлекаем параметры из строки запроса
-	query := r.URL.Query()
+	// Извлекаем параметры из заголовков
+	headers := r.Header
 	filter := domain.SongFilter{
-		GroupName: query.Get("group"),
-		SongName:  query.Get("song"),
+		GroupName: headers.Get("group"),
+		SongName:  headers.Get("song"),
+		Text:      headers.Get("text"),
+		Link:      domain.Link(headers.Get("link")),
 	}
 
-	if limit := query.Get("limit"); limit != "" {
+	if limit := headers.Get("limit"); limit != "" {
 		if l, err := strconv.Atoi(limit); err == nil {
 			filter.Limit = l
 		}
 	}
 
-	if offset := query.Get("offset"); offset != "" {
+	if offset := headers.Get("offset"); offset != "" {
 		if o, err := strconv.Atoi(offset); err == nil {
 			filter.Offset = o
 		}
+	}
+
+	// Парсим дату релиза
+	releaseDateString := headers.Get("release_date")
+	if releaseDateString != "" {
+		filterDate, err := domain.ParseCustomDate(releaseDateString)
+		if err != nil {
+			http.Error(w, "failed to parse date, wrong format", http.StatusBadRequest)
+			s.log.Debug(op, "failed to parse date, wrong format", err)
+			return
+		}
+		filter.ReleaseDate = filterDate
 	}
 
 	s.log.Debug(op, "filter:", filter)
@@ -237,53 +270,57 @@ func (s Server) GetLibraryHandler(w http.ResponseWriter, r *http.Request) {
 // @Summary      Получить информацию о песне
 // @Description  Возвращает данные о песне с пагинацией текста
 // @Tags         Songs
-// @Accept       json
 // @Produce      json
-// @Param        song  body  domain.Song  true  "Название группы и песни"
+// @Param        group          header  string  true   "Название группы"
+// @Param        song           header  string  true   "Название песни"
+// @Param        page           header  int     false  "Номер страницы (по умолчанию 1)"
+// @Param        size           header  int     false  "Количество куплетов на странице (по умолчанию 2)"
 // @Success      200     {object}  map[string]interface{}
 // @Failure      400     {object}  string  "Некорректный запрос"
 // @Failure      500     {object}  string  "Ошибка сервера"
-// @Router       /song [post]
+// @Router       /song [get]
 func (s Server) GetSongHandler(w http.ResponseWriter, r *http.Request) {
 	const op = "gates.Server.GetSongHandler"
 
 	s.log.Info(op, "connected to GetSongHandler", "trying to get song")
-	var song domain.Song
-	//читаем запрос
-	if err := json.NewDecoder(r.Body).Decode(&song); err != nil {
-		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
-		s.log.Error(op, "failed to decode song", err)
+
+	// Извлекаем параметры из заголовков
+	headers := r.Header
+	song := domain.Song{
+		GroupName: domain.GroupName(headers.Get("group")),
+		SongName:  domain.SongName(headers.Get("song")),
+	}
+
+	err := song.Validate() // Проверка, что переданы обязательные параметры
+	if err != nil {
+		http.Error(w, "Invalid request: "+err.Error(), http.StatusBadRequest)
+		s.log.Error(op, "failed to validate song", err)
 		return
 	}
 
-	err := song.Validate() //проверка на не пустые параметры group и song
-	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		s.log.Error(op, "failed to validate song", err)
-	}
-
-	//Получение параметров пагинации из запроса
-	query := r.URL.Query()
+	// Извлекаем параметры пагинации
 	page := 1
 	size := 2
-	if p := query.Get("page"); p != "" {
+	if p := headers.Get("page"); p != "" {
 		if parsedPage, err := strconv.Atoi(p); err == nil {
 			page = parsedPage
 		}
 	}
-	if s := query.Get("size"); s != "" {
+	if s := headers.Get("size"); s != "" {
 		if parsedSize, err := strconv.Atoi(s); err == nil {
 			size = parsedSize
 		}
 	}
-	//вытаскиваем песню из дб
-	song, err = s.db.GetSong((song.GroupName), song.SongName)
+
+	// Вытаскиваем песню из БД
+	song, err = s.db.GetSong(song.GroupName, song.SongName)
 	if err != nil {
 		http.Error(w, "Failed to retrieve song: "+err.Error(), http.StatusInternalServerError)
 		s.log.Error(op, "failed to retrieve song", err)
+		return
 	}
 
-	//пагинация
+	// Пагинация текста песни
 	verses := strings.Split(song.Text, "\n\n")
 	start := (page - 1) * size
 	end := start + size
@@ -294,27 +331,28 @@ func (s Server) GetSongHandler(w http.ResponseWriter, r *http.Request) {
 		end = len(verses)
 	}
 
-	//формирование ответа
+	// Формирование ответа
 	resp := map[string]interface{}{
 		"group":           song.GroupName,
 		"song":            song.SongName,
 		"release_date":    song.ReleaseDate,
 		"link":            song.Link,
-		"verses":          verses,
+		"verses":          verses[start:end],
 		"total_verses":    len(verses),
 		"page":            page,
 		"verses_per_page": size,
 	}
-	//пакуем ответ в джейсона
-	response, err := json.Marshal(resp)
-	if err != nil {
+
+	// Пакуем ответ в JSON
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		http.Error(w, "Failed to encode response: "+err.Error(), http.StatusInternalServerError)
 		s.log.Error(op, "failed to encode response", err)
+		return
 	}
-	w.Header().Set("Content-Type", "application/json") //загружаем
-	w.WriteHeader(http.StatusOK)
-	w.Write(response)
-	s.log.Info("GetSongHandler: successfully retrieved song")
+
+	s.log.Info(op, "successfully retrieved song")
 }
 
 // DeleteSongHandler godoc
@@ -400,36 +438,4 @@ func (s Server) RenameGroupHandler(w http.ResponseWriter, r *http.Request) {
 	//всё ок
 	s.log.Info("RenameGroupHandler: successfully renamed song")
 	w.WriteHeader(http.StatusNoContent)
-}
-
-func (s Server) InfoHandler(w http.ResponseWriter, r *http.Request) {
-	const op = "gates.Server.InfoHandler"
-
-	// Извлекаем параметры из запроса
-	group := r.URL.Query().Get("group")
-	song := r.URL.Query().Get("song")
-
-	if group == "" || song == "" {
-		http.Error(w, "Missing required parameters: group and song", http.StatusBadRequest)
-		s.log.Error(op, "missing required parameters")
-		return
-	}
-
-	// Логируем параметры
-	s.log.Info(op, "Received request for info", "group", group, "song", song)
-
-	// Ответ с заглушкой
-	response := swagger.SongDetail{
-		Link:        "https://www.youtube.com/watch?v=Xsp3_a-PMTw",
-		ReleaseDate: "16.07.2006",
-		Text:        "Ooh baby, don't you know I suffer?\nOoh baby, can you hear me moan?",
-	}
-
-	// Возвращаем JSON-ответ
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		s.log.Error(op, "failed to write response", err)
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-	}
 }

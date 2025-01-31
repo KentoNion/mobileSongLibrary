@@ -89,6 +89,10 @@ func (p *DB) UpdateSong(song Song) error {
 		query = query.Set("text", song.Text).
 			Where(sq.Eq{"group_name": song.GroupName, "Song": song.SongName})
 	}
+	if song.Link == "" && song.ReleaseDate.IsZero() && song.Text == "" {
+		p.log.Debug(op, "everything is empty, not doing anything", song.Link)
+		return domain.ErrCantReplaceWithEmptyRows
+	}
 	query = query.Set("updated_at", time.Now()).
 		Where(sq.Eq{"group_name": song.GroupName, "Song": song.SongName})
 	qry, args, err := query.ToSql()
@@ -187,11 +191,14 @@ func (p *DB) GetLibrary(ctx context.Context, filter domain.SongFilter) ([]domain
 	if filter.SongName != "" {
 		query = query.Where("Song = ?", filter.SongName)
 	}
-	if !filter.ReleaseDate.IsZero() {
+	if !time.Time(filter.ReleaseDate).IsZero() {
 		query = query.Where("release_date = ?", filter.ReleaseDate)
 	}
 	if filter.Text != "" {
 		query = query.Where("text LIKE ?", "%"+filter.Text+"%")
+	}
+	if filter.Link != "" {
+		query = query.Where("link = ?", filter.Link)
 	}
 
 	// Пагинация

@@ -19,7 +19,7 @@ import (
 //@version 1.0.0
 //@description API Server for songLibrary application
 
-//@host sets with config
+//@host localhost:8080
 //@BasePath /
 
 func main() {
